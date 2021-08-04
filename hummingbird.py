@@ -149,6 +149,7 @@ class HummingBird(AnalogMeasurer):
         self.sda_sampling_period = float(head[1].split("\n")[0])
         self.sda_data = np.loadtxt(self.sda_data_path, delimiter=",",
                                    skiprows=2)
+
       os.remove(self.sda_data_path)
 
     self.v_30p = None
