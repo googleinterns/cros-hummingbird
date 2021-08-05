@@ -4,7 +4,7 @@ An extension that check whether the captured analog measurements meet I2C SPEC l
 
 SPEC reference:	[NXP UM10204](https://www.nxp.com/docs/en/user-guide/UM10204.pdf)
 
-A report html file would be generated at /tmp/report.html
+A report html file would be generated at /var/tmp/report.html
 
 Capture both SCL and SDA data so that all SPEC limitation could be tested.
 

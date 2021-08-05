@@ -7,15 +7,17 @@ would be running I2C electrical test on capture data.
 """
 import datetime
 import os
-import tempfile
-#raise Exception(os.path.dirname(__file__))
+import subprocess
 
 from generate_report import OutputReportFile
-from generate_report import SVGfile
+from generate_report import SVGFile
 import numpy as np
 from saleae.data import GraphTime
 from saleae.range_measurements import AnalogMeasurer
-temp_path = tempfile.gettempdir()
+
+LOCAL_PATH = os.path.join(os.path.dirname(__file__), "output_reports")
+if not os.path.exists(LOCAL_PATH):
+  os.makedirs(LOCAL_PATH)
 
 
 class Logic():
@@ -112,7 +114,7 @@ class HummingBird(AnalogMeasurer):
     self.data_start_flag = 0  # 1 when first scl high
     self.first_packet = 0
 
-    self.scl_data_path = os.path.join(temp_path, "SCL.txt")
+    self.scl_data_path = os.path.join(LOCAL_PATH, "SCL.txt")
     self.scl_data = None
     self.scl_start_time = None
     self.scl_sampling_period = None
@@ -131,10 +133,9 @@ class HummingBird(AnalogMeasurer):
         self.f_clk = float(head[2].split("\n")[0])
         self.scl_data = np.loadtxt(self.scl_data_path, delimiter=",",
                                    skiprows=3)
-        f.close()
       os.remove(self.scl_data_path)
 
-    self.sda_data_path = os.path.join(temp_path, "SDA.txt")
+    self.sda_data_path = os.path.join(LOCAL_PATH, "SDA.txt")
     self.sda_data = None
     self.sda_start_time = None
     self.sda_sampling_period = None
@@ -151,15 +152,14 @@ class HummingBird(AnalogMeasurer):
         self.sda_sampling_period = float(head[1].split("\n")[0])
         self.sda_data = np.loadtxt(self.sda_data_path, delimiter=",",
                                    skiprows=2)
-        f.close()
       os.remove(self.sda_data_path)
 
     self.requested_measurements = {}
     for m in supported_measurements:
-      if m+"_worst" in requested_measurements:
-        self.requested_measurements[m+"_worst"] = True
+      if m + "_worst" in requested_measurements:
+        self.requested_measurements[m + "_worst"] = True
       else:
-        self.requested_measurements[m+"_worst"] = False
+        self.requested_measurements[m + "_worst"] = False
     if "spec" in requested_measurements:
       self.requested_measurements["spec"] = True
 
@@ -204,7 +204,7 @@ class HummingBird(AnalogMeasurer):
     vs_list = [1.2, 1.8, 3.3, 5]
     pos = np.argmax(vs_list > v_max)
     if pos:
-      if vs_list[pos] - v_max <= v_max - vs_list[pos-1]:
+      if vs_list[pos] - v_max <= v_max - vs_list[pos - 1]:
         vs = vs_list[pos]
       else:
         vs = vs_list[pos-1]
@@ -232,7 +232,7 @@ class HummingBird(AnalogMeasurer):
             clk_dataline.append(dataline.low_start - dataline.last_low_start)
           dataline.last_low_start = dataline.low_start
 
-      if (v <= v_70p and n > v_70p) or (v <= v_70p and n > v_70p):
+      if (v >= v_70p and n < v_70p) or (v <= v_70p and n > v_70p):
         dataline.i_70p = i
         if dataline.i_30p is not None:  # rising edge
           dataline.high_start = dataline.i_70p
@@ -242,22 +242,37 @@ class HummingBird(AnalogMeasurer):
             clk_dataline.append(dataline.high_start - dataline.last_high_start)
           dataline.last_high_start = dataline.high_start
       v = n
-      if len(clk_dataline) >= 5:
+      if len(clk_dataline) >= 8:
         break
 
-    if len(clk_dataline) > 3:
-      clk_dataline = np.sort(clk_dataline)[:-1]
-      ptp = np.ptp(clk_dataline)
-      if ptp < 30:
+    if len(clk_dataline) > 7:
+
+      # consider different sampling rate by multiply sampling_period
+      # avoid extreme value which might cause by clk stretching
+
+      clk_dataline = np.sort(clk_dataline)[:-2] * self.sampling_period
+
+      # calculate the difference percentage of f_max and f_avg
+      # SCL should be stable and the difference should be small
+
+      f_clk = int(1 / np.average(clk_dataline))
+      f_clk2 = int(1 / np.min(clk_dataline))
+      stable = (f_clk2 - f_clk) / f_clk * 100
+
+      if 5e4 < f_clk < 1.1e5 and stable < 10:
         self.type = "SCL"
+        self.f_clk = f_clk
+      elif 2e5 < f_clk < 4.4e5 and stable < 10:
+        self.type = "SCL"
+        self.f_clk = f_clk
+      elif 5e5 < f_clk < 1.1e6 and stable < 10:
+        self.type = "SCL"
+        self.f_clk = f_clk
 
     if self.type is None:
       self.type = "SDA"
 
     ############### Determine Operation Mode ###############
-
-    if self.type == "SCL":  # 1st SCL capture
-      self.f_clk = int(1 / (np.average(clk_dataline) * self.sampling_period))
 
     if self.f_clk is not None:  # Read from 1st SCL capture
       if self.f_clk < 1.1e5:
@@ -274,10 +289,10 @@ class HummingBird(AnalogMeasurer):
       self.scl_sampling_period = self.sampling_period
       if self.sda_data is None:
         with open(self.scl_data_path, "w") as f:
-          f.write(self.start_time.as_datetime().__str__().split(".")[0]+"\t"+
-                  self.start_time.__str__().split(".")[1]+"\n")
-          f.write(self.sampling_period.__str__()+"\n")
-          f.write(self.f_clk.__str__()+"\n")
+          f.write(self.start_time.as_datetime().__str__().split(".")[0] + "\t" +
+                  self.start_time.__str__().split(".")[1] + "\n")
+          f.write(self.sampling_period.__str__() + "\n")
+          f.write(self.f_clk.__str__() + "\n")
           np.savetxt(f, data)
         self.scl_start_time = self.start_time
       else:
@@ -297,9 +312,9 @@ class HummingBird(AnalogMeasurer):
       self.sda_sampling_period = self.sampling_period
       if self.scl_data is None:
         with open(self.sda_data_path, "w") as f:
-          f.write(self.start_time.as_datetime().__str__().split(".")[0]+"\t"+
-                  self.start_time.__str__().split(".")[1]+"\n")
-          f.write(self.sampling_period.__str__()+"\n")
+          f.write(self.start_time.as_datetime().__str__().split(".")[0] + "\t" +
+                  self.start_time.__str__().split(".")[1] + "\n")
+          f.write(self.sampling_period.__str__() + "\n")
           np.savetxt(f, data)
         self.sda_start_time = self.start_time
       else:
@@ -321,11 +336,11 @@ class HummingBird(AnalogMeasurer):
       ## Match the start time of SDA and SCL
 
       if self.scl_start_time > self.sda_start_time:
-        delta_s = (self.scl_start_time-self.sda_start_time).__float__()
+        delta_s = (self.scl_start_time - self.sda_start_time).__float__()
         delta_s = round(delta_s / self.sda_sampling_period)
         self.sda_data = self.sda_data[delta_s:]
       else:
-        delta_s = (self.sda_start_time-self.scl_start_time).__float__()
+        delta_s = (self.sda_start_time - self.scl_start_time).__float__()
         delta_s = round(delta_s / self.scl_sampling_period)
         self.scl_data = self.scl_data[delta_s:]
 
@@ -346,6 +361,7 @@ class HummingBird(AnalogMeasurer):
             "Please capture again.")
 
     ################### find SPEC value ##############################
+    # Constrain: should capture from START pattern
 
     field = [
         "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "t_rise_sda",
@@ -547,13 +563,15 @@ class HummingBird(AnalogMeasurer):
               self.restart_flag = 1
               self.first_packet = 1
               self.start_flag = 0
+              self.data_start_flag = 0
               addr = ""
               measure_field["t_SU_STA"].append([i, sda.high_end-scl.high_start])
             else:  # S
               self.start_flag = 1
               self.first_packet = 1
-              addr = ""
               self.stop_flag = 0
+              self.data_start_flag = 0
+              addr = ""
               if sda.high_start is not None:
                 measure_field["t_BUF"].append([i, sda.high_end-sda.high_start])
 
@@ -562,11 +580,9 @@ class HummingBird(AnalogMeasurer):
             if self.restart_flag:
               measure_field["t_HD_STA_Sr"].append(
                   [i, scl.high_end - sda.low_start])
-              self.data_start_flag = 0
             elif self.start_flag:
               measure_field["t_HD_STA_S"].append(
                   [i, scl.high_end - sda.low_start])
-              self.data_start_flag = 0
 
           if ((scl.state == 1) and (sda.low_end == i) and
               scl.high_start is not None):
@@ -742,42 +758,42 @@ class HummingBird(AnalogMeasurer):
     fields1 = ["v_high_scl", "v_low_scl", "v_high_sda", "v_low_sda"]
     for f in fields1:
       ff = "_".join(f.split("_")[:-1])
-      if self.requested_measurements[f+"_worst"] and measure_field[f]:
+      if self.requested_measurements[f + "_worst"] and measure_field[f]:
 
-        values[f+"_max"] = np.max(measure_field[f], axis=0)[1]
-        values[f+"_min"] = np.min(measure_field[f], axis=0)[1]
+        values[f + "_max"] = np.max(measure_field[f], axis=0)[1]
+        values[f + "_min"] = np.min(measure_field[f], axis=0)[1]
         if "high" in f:
-          values[f+"_worst"] = values[f+"_min"]
+          values[f + "_worst"] = values[f + "_min"]
           measure_idx = np.argmin(measure_field[f], axis=0)[1]
-          result[f+"_margin"] = values[f+"_worst"] - spec_limit[ff]
+          result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff]
         elif "low" in f:
-          values[f+"_worst"] = values[f+"_max"]
+          values[f + "_worst"] = values[f + "_max"]
           measure_idx = np.argmax(measure_field[f], axis=0)[1]
-          result[f+"_margin"] = spec_limit[ff] - values[f+"_worst"]
-        result[f+"_idx"] = measure_field[f][measure_idx][0]
+          result[f + "_margin"] = spec_limit[ff] - values[f + "_worst"]
+        result[f + "_idx"] = measure_field[f][measure_idx][0]
         svgwidth[f] = measure_field[f][measure_idx][2]
-        result[f+"_percent"] = result[f+"_margin"] / spec_limit[ff] * 100
+        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff] * 100
 
     fields2 = ["v_nh_scl", "v_nl_scl", "v_nh_sda", "v_nl_sda"]
     for f in fields2:
       ff = f.replace("nh", "high").replace("nl", "low")
       ff2 = "_".join(f.split("_")[:-1])
-      if self.requested_measurements[f+"_worst"] and measure_field[ff]:
+      if self.requested_measurements[f + "_worst"] and measure_field[ff]:
         if "nh" in f:
-          values[f+"_max"] = (values[ff+"_max"] - v_70p) / vs
-          values[f+"_min"] = (values[ff+"_min"] - v_70p) / vs
+          values[f + "_max"] = (values[ff + "_max"] - v_70p) / vs
+          values[f + "_min"] = (values[ff + "_min"] - v_70p) / vs
         elif "nl" in f:
-          values[f+"_max"] = (v_30p - values[ff+"_min"]) / vs
-          values[f+"_min"] = (v_30p - values[ff+"_max"]) / vs
-        values[f+"_worst"] = values[f+"_min"]
-        result[f+"_idx"] = result[ff+"_idx"]
+          values[f + "_max"] = (v_30p - values[ff + "_min"]) / vs
+          values[f + "_min"] = (v_30p - values[ff + "_max"]) / vs
+        values[f + "_worst"] = values[f + "_min"]
+        result[f + "_idx"] = result[ff + "_idx"]
         svgwidth[f] = svgwidth[ff]
-        if values[f+"_worst"] >= spec_limit[ff2]:
+        if values[f + "_worst"] >= spec_limit[ff2]:
           result[f] = 0
         else:
           result[f] = 1
-        result[f+"_margin"] = values[f+"_worst"] - spec_limit[ff2]
-        result[f+"_percent"] = result[f+"_margin"] / spec_limit[ff2] * 100
+        result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff2]
+        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff2] * 100
 
     if self.requested_measurements["f_clk_worst"] and measure_field["T_clk"]:
       t_clk_min = (
@@ -795,42 +811,44 @@ class HummingBird(AnalogMeasurer):
       else:
         result["f_clk"] = 1
       result["f_clk_margin"] = int(spec_limit["f_clk"] - values["f_clk_worst"])
-      result["f_clk_percent"] = result["f_clk_margin"]/spec_limit["f_clk"] * 100
+      result["f_clk_percent"] = (
+          result["f_clk_margin"] / spec_limit["f_clk"] * 100
+      )
 
     fields3 = ["t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl"]
     for f in fields3:
-      if self.requested_measurements[f+"_worst"] and measure_field[f]:
-        values[f+"_max"] = (
+      if self.requested_measurements[f + "_worst"] and measure_field[f]:
+        values[f + "_max"] = (
             np.max(measure_field[f], axis=0)[1] * self.sampling_period)
-        values[f+"_min"] = (
+        values[f + "_min"] = (
             np.min(measure_field[f], axis=0)[1] * self.sampling_period)
         ff = "_".join(f.split("_")[:-1])
-        if spec_limit.get(ff+"_max") is not None:
-          if spec_limit.get(ff+"_min") is None:
+        if spec_limit.get(ff + "_max") is not None:
+          if spec_limit.get(ff + "_min") is None:
             limit_min = np.NINF
           else:
-            limit_min = spec_limit[ff+"_min"]
-          if (values[f+"_max"] <= spec_limit[ff+"_max"] and
-              values[f+"_min"] >= limit_min):
+            limit_min = spec_limit[ff + "_min"]
+          if (values[f + "_max"] <= spec_limit[ff + "_max"] and
+              values[f + "_min"] >= limit_min):
             result[f] = 0
           else:
             result[f] = 1
-          if (spec_limit[ff+"_max"] - values[f+"_max"] <
-              values[f+"_min"] - limit_min):
-            values[f+"_worst"] = values[f+"_max"]
+          if (spec_limit[ff + "_max"] - values[f + "_max"] <
+              values[f + "_min"] - limit_min):
+            values[f + "_worst"] = values[f + "_max"]
             measure_idx = np.argmax(measure_field[f], axis=0)[1]
-            result[f+"_idx"] = measure_field[f][measure_idx][0]
+            result[f + "_idx"] = measure_field[f][measure_idx][0]
             svgwidth[f] = measure_field[f][measure_idx][1]
-            result[f+"_margin"] = spec_limit[ff+"_max"] - values[f+"_max"]
-            result[f+"_percent"] = (
-                result[f+"_margin"] / spec_limit[ff+"_max"] * 100)
+            result[f + "_margin"] = spec_limit[ff + "_max"] - values[f + "_max"]
+            result[f + "_percent"] = (
+                result[f + "_margin"] / spec_limit[ff + "_max"] * 100)
           else:
-            values[f+"_worst"] = values[f+"_min"]
+            values[f + "_worst"] = values[f + "_min"]
             measure_idx = np.argmin(measure_field[f], axis=0)[1]
-            result[f+"_idx"] = measure_field[f][measure_idx][0]
+            result[f + "_idx"] = measure_field[f][measure_idx][0]
             svgwidth[f] = measure_field[f][measure_idx][1]
-            result[f+"_margin"] = values[f+"_min"] - limit_min
-            result[f+"_percent"] = result[f+"_margin"] / limit_min *100
+            result[f + "_margin"] = values[f + "_min"] - limit_min
+            result[f + "_percent"] = result[f + "_margin"] / limit_min * 100
 
     fields4 = [
         "t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF", "t_HD_STA_S",
@@ -838,60 +856,60 @@ class HummingBird(AnalogMeasurer):
         "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev"
     ]
     for f in fields4:
-      if self.requested_measurements[f+"_worst"] and measure_field[f]:
+      if self.requested_measurements[f + "_worst"] and measure_field[f]:
         if f in ["t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF"]:
           ff = f
         elif f in ["t_HD_STA_S", "t_HD_STA_Sr"]:
           ff = "_".join(f.split("_")[:-1])
         else:
           ff = "_".join(f.split("_")[:-2])
-        values[f+"_max"] = (
+        values[f + "_max"] = (
             np.max(measure_field[f], axis=0)[1] * self.scl_sampling_period)
-        values[f+"_min"] = (
+        values[f + "_min"] = (
             np.min(measure_field[f], axis=0)[1] * self.scl_sampling_period)
-        values[f+"_worst"] = values[f+"_min"]
+        values[f + "_worst"] = values[f + "_min"]
         measure_idx = np.argmin(measure_field[f], axis=0)[1]
-        result[f+"_idx"] = measure_field[f][measure_idx][0]
+        result[f + "_idx"] = measure_field[f][measure_idx][0]
         svgwidth[f] = measure_field[f][measure_idx][1]
-        if values[f+"_worst"] >= spec_limit[ff]:
+        if values[f + "_worst"] >= spec_limit[ff]:
           result[f] = 0
         else:
           result[f] = 1
-        result[f+"_margin"] = values[f+"_worst"] - spec_limit[ff]
-        result[f+"_percent"] = result[f+"_margin"] / spec_limit[ff] * 100
+        result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff]
+        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff] * 100
 
     fields5 = [
         "t_HD_DAT_rising_host", "t_HD_DAT_falling_host", "t_HD_DAT_rising_dev",
         "t_HD_DAT_falling_dev"
     ]
     for f in fields5:
-      if self.requested_measurements[f+"_worst"] and measure_field[f]:
+      if self.requested_measurements[f + "_worst"] and measure_field[f]:
         ff = "_".join(f.split("_")[:-2])
-        values[f+"_max"] = (
+        values[f + "_max"] = (
             np.max(measure_field[f], axis=0)[1] * self.scl_sampling_period)
-        values[f+"_min"] = (
+        values[f + "_min"] = (
             np.min(measure_field[f], axis=0)[1] * self.scl_sampling_period)
         if spec_limit.get(ff) is None:
           limit_max = np.inf
         else:
           limit_max = spec_limit[ff]
-        if values[f+"_min"] >= 0 and values[f+"_max"] <= limit_max:
+        if values[f + "_min"] >= 0 and values[f + "_max"] <= limit_max:
           result[f] = 0
         else:
           result[f] = 1
-        if values[f+"_min"] - 0 < limit_max - values[f+"_max"]:
-          values[f+"_worst"] = values[f+"_min"]
+        if values[f + "_min"] - 0 < limit_max - values[f + "_max"]:
+          values[f + "_worst"] = values[f + "_min"]
           measure_idx = np.argmin(measure_field[f], axis=0)[1]
-          result[f+"_idx"] = measure_field[f][measure_idx][0]
+          result[f + "_idx"] = measure_field[f][measure_idx][0]
           svgwidth[f] = measure_field[f][measure_idx][1]
-          result[f+"_margin"] = values[f+"_min"] - 0
+          result[f + "_margin"] = values[f + "_min"] - 0
         else:
-          values[f+"_worst"] = values[f+"_max"]
+          values[f + "_worst"] = values[f + "_max"]
           measure_idx = np.argmax(measure_field[f], axis=0)[1]
-          result[f+"_idx"] = measure_field[f][measure_idx][0]
+          result[f + "_idx"] = measure_field[f][measure_idx][0]
           svgwidth[f] = measure_field[f][measure_idx][1]
-          result[f+"_margin"] = limit_max - values[f+"_max"]
-        result[f+"_percent"] = result[f+"_margin"]/limit_max *100
+          result[f + "_margin"] = limit_max - values[f + "_max"]
+        result[f + "_percent"] = result[f + "_margin"]/limit_max * 100
 
     fail = {}
     if self.requested_measurements["spec"]:
@@ -906,7 +924,6 @@ class HummingBird(AnalogMeasurer):
 
     uni_addr = list(set(addr_list))
     uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
-    uni_addr = list(set(uni_addr))
 
     ################### SVG Plot ##############################
     # Calculate Max/Min Value for Plot Boundary
@@ -926,28 +943,28 @@ class HummingBird(AnalogMeasurer):
           "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
           "t_high", "f_clk", "v_nl_scl", "v_nh_scl"
       ]
-      svg_fields["scl"] = SVGfile(self.scl_data, scl_v_max, scl_v_min, None,
+      svg_fields["scl"] = SVGFile(self.scl_data, scl_v_max, scl_v_min, None,
                                   None, "scl_show")
       for f in fields1:
-        if result.get(f+"_idx"):
-          idx = result[f+"_idx"]
+        if result.get(f + "_idx"):
+          idx = result[f + "_idx"]
           start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
           end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
-          svg_fields[f] = SVGfile(self.scl_data[start_idx:end_idx], scl_v_max,
+          svg_fields[f] = SVGFile(self.scl_data[start_idx:end_idx], scl_v_max,
                                   scl_v_min, idx - start_idx, svgwidth[f], f)
 
       fields2 = [
           "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda", "v_nl_sda",
           "v_nh_sda"
       ]
-      svg_fields["sda"] = SVGfile(self.sda_data, sda_v_max, sda_v_min, None,
+      svg_fields["sda"] = SVGFile(self.sda_data, sda_v_max, sda_v_min, None,
                                   None, "sda_show")
       for f in fields2:
-        if result.get(f+"_idx"):
-          idx = result[f+"_idx"]
+        if result.get(f + "_idx"):
+          idx = result[f + "_idx"]
           start_idx = int(max(0, min(idx - 1000, len(self.sda_data) - 2000)))
           end_idx = int(min(len(self.sda_data), max(idx + 1000, 2000)))
-          svg_fields[f] = SVGfile(self.sda_data[start_idx:end_idx], sda_v_max,
+          svg_fields[f] = SVGFile(self.sda_data[start_idx:end_idx], sda_v_max,
                                   sda_v_min, idx - start_idx, svgwidth[f], f)
 
       fields3 = [
@@ -958,22 +975,24 @@ class HummingBird(AnalogMeasurer):
           "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
       ]
       for f in fields3:
-        if result.get(f+"_idx"):
-          idx = result[f+"_idx"]
+        if result.get(f + "_idx"):
+          idx = result[f + "_idx"]
           start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
           end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
-          svg_fields[f+"_scl"] = SVGfile(self.scl_data[start_idx:end_idx],
-                                         scl_v_max, scl_v_min, idx-start_idx,
-                                         svgwidth[f], f+"_scl")
-          svg_fields[f+"_sda"] = SVGfile(self.sda_data[start_idx:end_idx],
-                                         sda_v_max, sda_v_min, idx-start_idx,
-                                         svgwidth[f], f+"_sda")
+          svg_fields[f + "_scl"] = SVGFile(
+              self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
+              idx - start_idx, svgwidth[f], f + "_scl"
+          )
+          svg_fields[f + "_sda"] = SVGFile(
+              self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
+              idx - start_idx, svgwidth[f], f + "_sda"
+          )
 
       ############### Generate and Show Report ##############
 
       report_path = OutputReportFile(
           self.mode, spec_limit.copy(), vs, values.copy(), result.copy(),
           fail.copy(), num_pass, svg_fields, uni_addr)
-      os.system(f"open {report_path}")
+      subprocess.run(["open", report_path], check=True)
 
     return values

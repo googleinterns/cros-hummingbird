@@ -4,13 +4,19 @@ The file contain methods related to output report.
 
 """
 import datetime
-import tempfile
-temp_path = tempfile.gettempdir()
+import os
+import typing
 
-__main__ = ["SVGfile", "OutputReportFile"]
+import numpy as np
 
 
-def SVGfile(data, data_max, data_min, rect_idx, rect_width, field):
+LOCAL_PATH = os.path.join(os.path.dirname(__file__), "output_reports")
+if not os.path.exists(LOCAL_PATH):
+  os.makedirs(LOCAL_PATH)
+
+
+def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
+            rect_idx: int, rect_width: int, field: str):
   """Generate SVG plot.
 
   Args:
@@ -19,15 +25,15 @@ def SVGfile(data, data_max, data_min, rect_idx, rect_width, field):
     data_min:  data minimum value
     rect_idx:  index where the worst pattern occurs
     rect_width:  the index width where the worst pattern last
-    field:  the SPEC field of this SVF plot
+    field:  the SPEC field of this SVG plot
 
   Returns:
     SVG plot to write in the html report.
   """
   svgfile = ""
-  data_max = int(data_max*50)
-  data_min = int(data_min*50)
-  height = (data_max - data_min)*2
+  data_max = int(data_max * 50)
+  data_min = int(data_min * 50)
+  height = (data_max - data_min) * 2
   rate = min(max(len(data) // 1000, 1), 180)
   width = len(data) // rate * 5
 
@@ -35,14 +41,14 @@ def SVGfile(data, data_max, data_min, rect_idx, rect_width, field):
     svgfile += (
         f"<div id='{field}'><div class='column_left'>SCL capture</div>"
         "<div class='column_right'>"
-        f"<svg viewBox='0 0 {width} {height*1.2}' height={height*0.7} width=auto>"
+        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   elif field == "sda_show":
     svgfile += (
         f"<div id='{field}'><div class='column_left'>SDA capture</div>"
         "<div class='column_right'>"
-        f"<svg viewBox='0 0 {width} {height*1.2}' height={height*0.7} width=auto>"
+        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   else:
@@ -58,13 +64,13 @@ def SVGfile(data, data_max, data_min, rect_idx, rect_width, field):
           "<div class='column_left'>SCL capture</div><div class='column_right'>"
       )
     svgfile += (
-        f"<svg viewBox='0 0 {width} {height*1.2}' height={height*0.7} width=auto>"
+        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
     # Red Rect to Mark the Measure Area
 
-    rect_width = max(rect_width//rate*5, 7)
-    rect_x = rect_idx//rate*5 - rect_width
+    rect_width = max(rect_width//rate * 5, 7)
+    rect_x = rect_idx//rate * 5 - rect_width
     svgfile += (
         f"<rect x={rect_x} y='0' width={rect_width} height='100%' fill='red' opacity='0.3'/>"
     )
@@ -73,17 +79,21 @@ def SVGfile(data, data_max, data_min, rect_idx, rect_width, field):
 
   points = ""
   for i in range(0, len(data), rate):
-    points += f"{i//rate*5},{(data_max - int(data[i]*50))*2 + 40} "
+    points += f"{i//rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
   svgfile += (
       f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:5;'/>"
-      "Sorry, your browser does not support inline SVG.</svg></div></div>"
+      "</svg></div></div>"
   )
 
   return svgfile
 
 
-def OutputReportFile(mode, spec, vs, values, result, fail, num_pass, svg_fields,
-                     addr):
+def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
+                     values: typing.Dict[str, np.float64],
+                     result: typing.Dict[str, np.float64],
+                     fail: typing.Dict[str, int], num_pass: int,
+                     svg_fields: typing.Dict[str, str],
+                     addr: typing.List[str]):
   """Write HTML report.
 
   Args:
@@ -120,7 +130,8 @@ def OutputReportFile(mode, spec, vs, values, result, fail, num_pass, svg_fields,
       "t_HD_DAT", "t_HD_STA", "t_SU_STA", "t_SU_STO", "t_BUF"
   ]
 
-  report = "<html>\n\t<head><style>"
+  report = ("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>"
+            "<title>HummingBird Output Report</title><style>")
   style = """body {
     padding: 1% 3%;
     font-family: arial, sans-serif;
@@ -195,7 +206,6 @@ def OutputReportFile(mode, spec, vs, values, result, fail, num_pass, svg_fields,
   }
   .summary {
     margin: 0 0 20px 10px;
-    display:end;
     align-items: end;
     float: right;
     width: 300px;
@@ -233,9 +243,9 @@ function ShowSVG(x){
   console.log(x);
   ele_self = document.getElementById(x);
   ele_self.style.background = "#F5B7B1";
-  ele = document.getElementById(x+"_hide");
-  ele_scl = document.getElementById(x+"_scl_hide");
-  ele_sda = document.getElementById(x+"_sda_hide");
+  ele = document.getElementById(x + "_hide");
+  ele_scl = document.getElementById(x + "_scl_hide");
+  ele_sda = document.getElementById(x + "_sda_hide");
   let fields = [
       "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
       "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
@@ -255,11 +265,11 @@ function ShowSVG(x){
       if (item != x){
         ele1 = document.getElementById(item);
         if(ele1!=null){ele1.style.background = "white";}
-        ele2 = document.getElementById(item+"_hide");
+        ele2 = document.getElementById(item + "_hide");
         if(ele2!=null){ele2.style.display = "none";}
-        ele3 = document.getElementById(item+"_scl_hide");
+        ele3 = document.getElementById(item + "_scl_hide");
         if(ele3!=null){ele3.style.display = "none";}
-        ele4 = document.getElementById(item+"_sda_hide");
+        ele4 = document.getElementById(item + "_sda_hide");
         if(ele4!=null){ele4.style.display = "none";}
       }
     })
@@ -274,11 +284,11 @@ function ShowSVG(x){
       if (item != x){
         ele1 = document.getElementById(item);
         if(ele1!=null){ele1.style.background = "white";}
-        ele2 = document.getElementById(item+"_hide");
+        ele2 = document.getElementById(item + "_hide");
         if(ele2!=null){ele2.style.display = "none";}
-        ele3 = document.getElementById(item+"_scl_hide");
+        ele3 = document.getElementById(item + "_scl_hide");
         if(ele3!=null){ele3.style.display = "none";}
-        ele4 = document.getElementById(item+"_sda_hide");
+        ele4 = document.getElementById(item + "_sda_hide");
         if(ele4!=null){ele4.style.display = "none";}
       }
     })
@@ -290,11 +300,11 @@ function ShowSVG(x){
     fields.forEach(function(item, index, array) {
       ele1 = document.getElementById(item);
       if(ele1!=null){ele1.style.background = "white";}
-      ele2 = document.getElementById(item+"_hide");
+      ele2 = document.getElementById(item + "_hide");
       if(ele2!=null){ele2.style.display = "none";}
-      ele3 = document.getElementById(item+"_scl_hide");
+      ele3 = document.getElementById(item + "_scl_hide");
       if(ele3!=null){ele3.style.display = "none";}
-      ele4 = document.getElementById(item+"_sda_hide");
+      ele4 = document.getElementById(item + "_sda_hide");
       if(ele4!=null){ele4.style.display = "none";}
     })
   }
@@ -306,12 +316,17 @@ function ShowSVG(x){
     mode = "Unknown ( Note: SCL data has not been specified... )"
 
   time_now = datetime.datetime.now()
-  report_path = temp_path+f"/{time_now.strftime('%Y-%m-%d-%H%M%S')}report.html"
+  report_path = os.path.join(
+      LOCAL_PATH, f"report_{time_now.strftime('%Y%m%d%H%M%S')}.html"
+  )
   report += (
       "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'><p>"
-      "<b>Report Time:</b>"+"&nbsp;"*8 + time_now.strftime("%Y-%m-%d %H:%M:%S")+
-      "</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;"+report_path+"</p>"
-      "<p><b>Operation Mode:</b>&nbsp;&nbsp;"+mode+"</p><p><b>Operation Voltage"
+      "<b>Report Time:</b>" + "&nbsp;" * 8 +
+      time_now.strftime("%Y-%m-%d %H:%M:%S") +
+      "</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;" +
+      report_path + "</p>"
+      "<p><b>Operation Mode:</b>&nbsp;&nbsp;" + mode +
+      "</p><p><b>Operation Voltage"
       f":</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
       "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
       "NXP UM10204</a></p>"
@@ -320,64 +335,64 @@ function ShowSVG(x){
     if not fails:
       report += "<p>Pass SPEC test successfully! :)</p>"
     else:
-      report += "<p><b>Fail:</b>"+"&nbsp;"*2+fails+"</p>"
+      report += "<p><b>Fail:</b>" + "&nbsp;" * 2 + fails + "</p>"
   report += (
       f"<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;{' '.join(addr)}"
       "</div></div><div class='right'><table class='summary'><tr>"
       "<th colspan=2>Margin Threshold</th></tr><tr><td><b>Warning</b></td>"
-      "<td class='warning'>< 5%</td></tr><tr><td><b>Critical</b></td>"
-      "<td class='critical'>< 0%</td></tr></table><table class='summary'><tr>"
-      "<th colspan=2>SPEC Test Summary</th></tr><tr><td><b>Fail</b></td><td>"
-      f"{len(fail)}</td></tr><tr><td><b>Pass</b></td><td>{num_pass}</td></tr>"
-      f"<tr><td><b>Total</b></td><td>{result_num}</td></tr></table><h3>Click "
-      "each row to check the waveform of the worst mearsurement shown <u>at "
-      "the end of report</u>. </h3></div>"
+      "<td class='warning'>&lt; 5%</td></tr><tr><td><b>Critical</b></td>"
+      "<td class='critical'>&lt; 0%</td></tr></table><table class='summary'>"
+      "<tr><th colspan=2>SPEC Test Summary</th></tr><tr><td><b>Fail</b></td>"
+      f"<td>{len(fail)}</td></tr><tr><td><b>Pass</b></td><td>{num_pass}</td>"
+      f"</tr><tr><td><b>Total</b></td><td>{result_num}</td></tr></table><h3>"
+      "Click each row to check the waveform of the worst mearsurement shown "
+      "<u>at the end of report</u>. </h3></div>"
   )
 
   for f in field:
-    if values.get(f+"_worst") is None:
-      values[f+"_max"] = "N/A"
-      values[f+"_min"] = "N/A"
-      values[f+"_worst"] = "N/A"
+    if values.get(f + "_worst") is None:
+      values[f + "_max"] = "N/A"
+      values[f + "_min"] = "N/A"
+      values[f + "_worst"] = "N/A"
 
     else:
       if "t_rise" in f or "t_fall" in f:
-        values[f+"_max"] *= 1e9
-        values[f+"_min"] *= 1e9
-        values[f+"_worst"] *= 1e9
-        result[f+"_margin"] *= 1e9
+        values[f + "_max"] *= 1e9
+        values[f + "_min"] *= 1e9
+        values[f + "_worst"] *= 1e9
+        result[f + "_margin"] *= 1e9
 
       elif "t_" in f:
-        values[f+"_max"] *= 1e6
-        values[f+"_min"] *= 1e6
-        values[f+"_worst"] *= 1e6
-        result[f+"_margin"] *= 1e6
+        values[f + "_max"] *= 1e6
+        values[f + "_min"] *= 1e6
+        values[f + "_worst"] *= 1e6
+        result[f + "_margin"] *= 1e6
 
       elif "f_" in f:
-        values[f+"_max"] /= 1e3
-        values[f+"_min"] /= 1e3
-        values[f+"_worst"] /= 1e3
-        result[f+"_margin"] /= 1e3
+        values[f + "_max"] /= 1e3
+        values[f + "_min"] /= 1e3
+        values[f + "_worst"] /= 1e3
+        result[f + "_margin"] /= 1e3
 
-      values[f+"_max"] = f"{values[f+'_max']:.3f}"
-      values[f+"_min"] = f"{values[f+'_min']:.3f}"
-      values[f+"_worst"] = f"{values[f+'_worst']:.3f}"
+      values[f + "_max"] = f"{values[f + '_max']:.3f}"
+      values[f + "_min"] = f"{values[f + '_min']:.3f}"
+      values[f + "_worst"] = f"{values[f + '_worst']:.3f}"
 
-    if result.get(f+"_margin") is not None:
-      result[f+"_percent"] = f"{result[f+'_percent']:.1f}"
-      result[f+"_margin"] = f"{result[f+'_margin']:.3f}"
+    if result.get(f + "_margin") is not None:
+      result[f + "_percent"] = f"{result[f + '_percent']:.1f}"
+      result[f + "_margin"] = f"{result[f + '_margin']:.3f}"
       if "v_high" in f or "v_low" in f:
-        values[f+"_result"] = "Only for Informative"
+        values[f + "_result"] = "Only for Informative"
       else:
         if result[f] == 0:
-          values[f+"_result"] = "Pass"
+          values[f + "_result"] = "Pass"
         else:
-          values[f+"_result"] = "Fail"
+          values[f + "_result"] = "Fail"
 
     else:
-      result[f+"_margin"] = "N/A"
-      result[f+"_percent"] = "N/A"
-      values[f+"_result"] = "N/A"
+      result[f + "_margin"] = "N/A"
+      result[f + "_percent"] = "N/A"
+      values[f + "_result"] = "N/A"
 
   for k in spec_field:
     if spec.get(k) is not None:
@@ -440,25 +455,25 @@ function ShowSVG(x){
 
   for i in range(len(field)):
     f = field[i]
-    column6.append(values[f+"_max"])
-    column7.append(values[f+"_worst"])
-    column8.append(result[f+"_margin"])
-    column9.append(result[f+"_percent"])
-    column10.append(values[f+"_result"])
+    column6.append(values[f + "_max"])
+    column7.append(values[f + "_worst"])
+    column8.append(result[f + "_margin"])
+    column9.append(result[f + "_percent"])
+    column10.append(values[f + "_result"])
     if "sda" in f:
-      column5.append("SDA: "+values[f+"_min"])
+      column5.append("SDA: " + values[f + "_min"])
     elif "scl" in f:
-      column5.append("SCL: "+values[f+"_min"])
+      column5.append("SCL: " + values[f + "_min"])
     elif f[-1] == "S":
-      column5.append("S: "+values[f+"_min"])
+      column5.append("S: " + values[f + "_min"])
     elif f[-2:] == "Sr":
-      column5.append("Sr: "+values[f+"_min"])
+      column5.append("Sr: " + values[f + "_min"])
     elif "rising" in f:
-      column5.append("rise: "+values[f+"_min"])
+      column5.append("rise: " + values[f + "_min"])
     elif "falling" in f:
-      column5.append("fall: "+values[f+"_min"])
+      column5.append("fall: " + values[f + "_min"])
     else:
-      column5.append(values[f+"_min"])
+      column5.append(values[f + "_min"])
 
   table = "<table><tr>"
   for i in range(len(headers[0])):
@@ -526,7 +541,7 @@ function ShowSVG(x){
   report += "</body>\n</html>"
 
   with open(report_path, "w") as f:
-    f.write(report+"\n\r")
+    f.write(report + "\n\r")
 
   return report_path
 
