@@ -238,7 +238,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       width: 10%;
       padding: 30px 0;
       text-align: center;
-      font-weight: 600;
+      font-weight: 600;)
       font-size: 21px;
     }
     .column_right{
