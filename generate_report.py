@@ -69,8 +69,8 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
     # Red Rect to Mark the Measure Area
 
-    rect_width = max(rect_width//rate * 5, 7)
-    rect_x = rect_idx//rate * 5 - rect_width
+    rect_width = max(rect_width // rate * 5, 7)
+    rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
         f"<rect x={rect_x} y='0' width={rect_width} height='100%' fill='red' opacity='0.3'/>"
     )
@@ -79,7 +79,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   points = ""
   for i in range(0, len(data), rate):
-    points += f"{i//rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
+    points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
   svgfile += (
       f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:5;'/>"
       "</svg></div></div>"
