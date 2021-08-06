@@ -888,6 +888,8 @@ class HummingBird(AnalogMeasurer):
             svgwidth[f] = measure_field[f][measure_idx][1]
             result[f + "_margin"] = values[f + "_min"] - limit_min
             result[f + "_percent"] = result[f + "_margin"] / limit_min * 100
+        else:  # to show rise/fall time value when only SDA is captured
+          values[f + "_worst"] = values[f + "_max"]
 
     fields4 = [
         "t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF", "t_HD_STA_S",
@@ -1044,7 +1046,6 @@ class HummingBird(AnalogMeasurer):
 
     vs = self.determine_working_voltage(data)
     datatype = self.determine_datatype(data)
-
     mode = None
     if self.f_clk is not None:  # Read from 1st SCL capture
       mode = self.determine_operation_mode()
