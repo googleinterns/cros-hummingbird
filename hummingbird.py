@@ -257,20 +257,14 @@ class HummingBird(AnalogMeasurer):
         break
 
     if len(clk_dataline) > 7:
-      clk_dataline = np.sort(clk_dataline)[:-2] * self.sampling_period
-      f_clk = int(1 / np.average(clk_dataline))
-      f_clk2 = int(1 / np.min(clk_dataline))
-      stable = (f_clk2 - f_clk) / f_clk * 100
+      clk_dataline = np.sort(clk_dataline)[:5]
+      t_clk = np.average(clk_dataline)  # avg period time
+      t_clk2 = clk_dataline[0]  # min period time
+      stable = (t_clk - t_clk2) / t_clk2 * 100
 
-      if 5e4 < f_clk < 1.1e5 and stable < 10:
+      if stable < 20:
         datatype = "SCL"
-        self.f_clk = f_clk
-      elif 2e5 < f_clk < 4.4e5 and stable < 10:
-        datatype = "SCL"
-        self.f_clk = f_clk
-      elif 5e5 < f_clk < 1.1e6 and stable < 10:
-        datatype = "SCL"
-        self.f_clk = f_clk
+        self.f_clk = 1 / (t_clk2 * self.sampling_period)
 
     if datatype is None:
       datatype = "SDA"
@@ -607,130 +601,6 @@ class HummingBird(AnalogMeasurer):
 
     return measure_field, addr_list
 
-  def measure_only_scl(self, measure_field):
-    """When only SCL data is provided.
-
-    Args:
-      measure_field: measure value for each SPEC parameter
-
-    Returns:
-      measure_field: measure value for each SPEC parameter
-    """
-    scl = Logic()
-    v_low_scl = []
-    v_high_scl = []
-
-    v_scl = self.scl_data[0]
-    for i, n_scl in enumerate(self.scl_data[1:]):
-      if ((v_scl >= self.v_30p and n_scl < self.v_30p) or
-          (v_scl <= self.v_30p and n_scl > self.v_30p)):
-        scl.i_30p = i
-        if scl.i_70p is not None:  # falling edge
-          measure_field["t_fall_scl"].append([i, scl.i_30p - scl.i_70p])
-          scl.low_start = scl.i_30p
-          scl.i_30p = scl.i_70p = None
-          if scl.last_low_start is not None:
-            measure_field["T_clk"].append(
-                [i, scl.low_start - scl.last_low_start])
-          scl.last_low_start = scl.low_start
-
-        else:  # rising edge
-          scl.low_end = scl.i_30p
-          if scl.low_start is not None:
-            if v_low_scl:
-              measure_field["v_low_scl"].append(
-                  [i, np.median(v_low_scl), scl.low_end - scl.low_start])
-              v_low_scl = []
-            measure_field["t_low"].append([i, scl.low_end - scl.low_start])
-            scl.low_start = None
-
-      if ((v_scl >= self.v_70p and n_scl < self.v_70p) or
-          (v_scl <= self.v_70p and n_scl > self.v_70p)):
-        scl.i_70p = i
-        if scl.i_30p is not None:  # rising edge
-          measure_field["t_rise_scl"].append([i, scl.i_70p - scl.i_30p])
-          scl.high_start = scl.i_70p
-          scl.i_30p = scl.i_70p = None
-          if scl.last_high_start is not None:
-            measure_field["T_clk"].append(
-                [i, scl.high_start - scl.last_high_start])
-          scl.last_high_start = scl.high_start
-
-        else:  # falling edge
-          scl.high_end = scl.i_70p
-          if scl.high_start is not None:
-            if v_high_scl:
-              measure_field["v_high_scl"].append(
-                  [i, np.median(v_high_scl), scl.high_end - scl.high_start])
-              v_high_scl = []
-            measure_field["t_high"].append(
-                [i, scl.high_end - scl.high_start])
-            scl.high_start = None
-
-      if scl.low_start is not None:
-        v_low_scl.append(n_scl)
-      if scl.high_start is not None:
-        v_high_scl.append(n_scl)
-      v_scl = n_scl
-
-    return measure_field
-
-  def measure_only_sda(self, measure_field):
-    """When only SDA data is provided.
-
-    Args:
-      measure_field: measure value for each SPEC parameter
-
-    Returns:
-      measure_field: measure value for each SPEC parameter
-    """
-    sda = Logic()
-    v_low_sda = []
-    v_high_sda = []
-
-    v_sda = self.sda_data[0]
-    for i, n_sda in enumerate(self.sda_data[1:]):
-      if ((v_sda >= self.v_30p and n_sda < self.v_30p) or
-          (v_sda <= self.v_30p and n_sda > self.v_30p)):
-        sda.i_30p = i
-        if sda.i_70p is not None:  # falling edge
-          measure_field["t_fall_sda"].append([i, sda.i_30p - sda.i_70p])
-          sda.low_start = sda.i_30p
-          sda.i_30p = sda.i_70p = None
-
-        else:  # rising edge
-          sda.low_end = sda.i_30p
-          if v_low_sda and sda.low_start:
-            measure_field["v_low_sda"].append(
-                [i, np.median(v_low_sda), sda.low_end - sda.low_start])
-            v_low_sda = []
-          sda.low_end = sda.low_start = None
-
-      if ((v_sda >= self.v_70p and n_sda < self.v_70p) or
-          (v_sda <= self.v_70p and n_sda > self.v_70p)):
-        sda.i_70p = i
-        if sda.i_30p is not None:  # rising edge
-          measure_field["t_rise_sda"].append([i, sda.i_70p - sda.i_30p])
-          sda.high_start = sda.i_70p
-          sda.i_30p = sda.i_70p = None
-
-        else:  # falling edge
-          sda.high_end = sda.i_70p
-          if v_high_sda and sda.high_start:
-            measure_field["v_high_sda"].append(
-                [i, np.median(v_high_sda), sda.high_end - sda.high_start])
-            v_high_sda = []
-          sda.high_end = sda.high_start = None
-
-      if sda.low_start:
-        v_low_sda.append(n_sda)
-      elif sda.high_start:
-        v_high_sda.append(n_sda)
-
-      v_sda = n_sda
-
-    return measure_field
-
   def get_spec_limitation(self, mode, vs):
     """Get SPEC limitation according to mode.
 
@@ -1053,6 +923,8 @@ class HummingBird(AnalogMeasurer):
     self.process_1st_2nd_capture(datatype, data)
     if self.sda_data is not None and self.scl_data is not None:
       self.match_start_end_time()
+    else:
+      return {"spec": 0}
 
     ################### find SPEC value ##############################
     # Constrain: should capture from START pattern
@@ -1068,31 +940,18 @@ class HummingBird(AnalogMeasurer):
     measure_field = {f: [] for f in field}
     addr_list = []
 
-    if self.sda_data is not None and self.scl_data is not None:
-      supported_measurements = [
-          "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
-          "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-          "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-          "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-          "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
-          "t_SU_STO", "t_BUF"
-      ]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        measure_field, addr_list = self.measure_both_scl_sda(
-            measure_field, addr_list)
-
-    elif self.sda_data is None and self.scl_data is not None:
-      supported_measurements = ["t_rise_scl", "t_fall_scl", "t_low", "t_high"]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        measure_field = self.measure_only_scl(measure_field)
-
-    elif self.sda_data is not None and self.scl_data is None:
-      supported_measurements = ["t_rise_sda", "t_fall_sda"]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        measure_field = self.measure_only_sda(measure_field)
+    supported_measurements = [
+        "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
+        "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
+        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
+        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
+        "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
+        "t_SU_STO", "t_BUF"
+    ]
+    if any(k.split("_worst")[0] in supported_measurements
+           for k in self.requested_measurements):
+      measure_field, addr_list = self.measure_both_scl_sda(
+          measure_field, addr_list)
 
     ################### check SPEC limitation ##############################
 
@@ -1112,14 +971,13 @@ class HummingBird(AnalogMeasurer):
 
     ############### Generate and Show Report ##############
 
-    if self.scl_data is not None and self.sda_data is not None:
-      uni_addr = list(set(addr_list))
-      uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
+    uni_addr = list(set(addr_list))
+    uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
 
-      svg_fields = self.get_svg_fields(result, svgwidth)
-      report_path = OutputReportFile(
-          mode, spec_limit.copy(), vs, values.copy(), result.copy(),
-          fail.copy(), num_pass, svg_fields, uni_addr)
-      subprocess.run(["open", report_path], check=True)
+    svg_fields = self.get_svg_fields(result, svgwidth)
+    report_path = OutputReportFile(
+        mode, spec_limit.copy(), vs, values.copy(), result.copy(),
+        fail.copy(), num_pass, svg_fields, uni_addr)
+    subprocess.run(["open", report_path], check=True)
 
     return values
