@@ -59,8 +59,6 @@ class HummingBird(AnalogMeasurer):
     samples:  analog data samples, in the format of (time index, voltage value)
     start_time:  captured analog data start time
     sampling_period: time between two samples
-    type:  SCL or SDA
-    mode:  operation mode (Standard mode/Fast Mode/Fast Mode Plus)
     stop_flag:  STOP pattern detected, raise to 1 until START pattern
     start_flag:  START pattern detected, remain 1 for one package
                  (would last 9 SCL clock cycle)
@@ -105,8 +103,6 @@ class HummingBird(AnalogMeasurer):
     self.samples = []
     self.start_time = None
     self.sampling_period = None
-    self.type = None
-    self.mode = None
 
     self.stop_flag = 1
     self.start_flag = 0
@@ -154,6 +150,9 @@ class HummingBird(AnalogMeasurer):
                                    skiprows=2)
       os.remove(self.sda_data_path)
 
+    self.v_30p = None
+    self.v_70p = None
+
     self.requested_measurements = {}
     for m in supported_measurements:
       if m + "_worst" in requested_measurements:
@@ -182,23 +181,17 @@ class HummingBird(AnalogMeasurer):
     if self.start_time is None:
       self.start_time = data.start_time
 
-  def measure(self):
-    """Measure.
+  def determine_working_voltage(self, data):
+    """Determine Working Voltage.
 
-    This method is called after all the relevant data has been passed
-    to process_data function. It returns a dictionary of the required
-    measurements values.
+    Using the maximum voltage value to predict the working voltage.
+
+    Args:
+      data: numpy array of voltages values
 
     Returns:
-      values: dictionary of request_measurements values
-
-    Raises:
-      Exception:  SDA and SCL data time range is not overlapped
+      vs: working voltage
     """
-    data = np.concatenate(self.samples)
-
-    ############### Determine Working Voltage #############
-
     v_max = np.max(data)
 
     vs_list = [1.2, 1.8, 3.3, 5]
@@ -210,19 +203,36 @@ class HummingBird(AnalogMeasurer):
         vs = vs_list[pos-1]
     else:
       vs = v_max
-    v_30p = vs * 0.3
-    v_70p = vs * 0.7
+    self.v_30p = vs * 0.3
+    self.v_70p = vs * 0.7
 
-    ################ Determine Data Type ##################
-    # Read the first four cycle to determine data type
-    # Constrain: should capture at least four SCL clk cycle
+    return vs
 
+  def determine_datatype(self, data):
+    """Determine Data Type.
+
+    Read the first four cycle to determine data type
+    Consider different sampling rate by multiply sampling_period
+    Avoid extreme value which might cause by clk stretching
+    Calculate the difference percentage of f_max and f_avg
+    SCL should be stable and the difference should be small
+
+    Constrain: should capture at least five SCL clk cycles
+
+    Args:
+      data: numpy array of voltages values
+
+    Returns:
+      datatype:  SCL or SDA
+    """
+    datatype = None
     dataline = Logic()
     clk_dataline = []
     v = data[0]
     for i in range(1, len(data)):
       n = data[i]
-      if (v >= v_30p and n < v_30p) or (v <= v_30p and n > v_30p):
+      if ((v >= self.v_30p and n < self.v_30p) or
+          (v <= self.v_30p and n > self.v_30p)):
         dataline.i_30p = i
         if dataline.i_70p is not None:  # falling edge
           dataline.low_start = dataline.i_30p
@@ -232,7 +242,8 @@ class HummingBird(AnalogMeasurer):
             clk_dataline.append(dataline.low_start - dataline.last_low_start)
           dataline.last_low_start = dataline.low_start
 
-      if (v >= v_70p and n < v_70p) or (v <= v_70p and n > v_70p):
+      if ((v >= self.v_70p and n < self.v_70p) or
+          (v <= self.v_70p and n > self.v_70p)):
         dataline.i_70p = i
         if dataline.i_30p is not None:  # rising edge
           dataline.high_start = dataline.i_70p
@@ -246,45 +257,54 @@ class HummingBird(AnalogMeasurer):
         break
 
     if len(clk_dataline) > 7:
-
-      # consider different sampling rate by multiply sampling_period
-      # avoid extreme value which might cause by clk stretching
-
       clk_dataline = np.sort(clk_dataline)[:-2] * self.sampling_period
-
-      # calculate the difference percentage of f_max and f_avg
-      # SCL should be stable and the difference should be small
-
       f_clk = int(1 / np.average(clk_dataline))
       f_clk2 = int(1 / np.min(clk_dataline))
       stable = (f_clk2 - f_clk) / f_clk * 100
 
       if 5e4 < f_clk < 1.1e5 and stable < 10:
-        self.type = "SCL"
+        datatype = "SCL"
         self.f_clk = f_clk
       elif 2e5 < f_clk < 4.4e5 and stable < 10:
-        self.type = "SCL"
+        datatype = "SCL"
         self.f_clk = f_clk
       elif 5e5 < f_clk < 1.1e6 and stable < 10:
-        self.type = "SCL"
+        datatype = "SCL"
         self.f_clk = f_clk
 
-    if self.type is None:
-      self.type = "SDA"
+    if datatype is None:
+      datatype = "SDA"
 
-    ############### Determine Operation Mode ###############
+    return datatype
 
-    if self.f_clk is not None:  # Read from 1st SCL capture
-      if self.f_clk < 1.1e5:
-        self.mode = "Standard Mode"
-      elif self.f_clk < 4.4e5:
-        self.mode = "Fast Mode"
-      elif self.f_clk < 1.1e6:
-        self.mode = "Fast Mode Plus"
+  def determine_operation_mode(self):
+    """Determine Operation Mode.
 
-     ############### 1st or 2nd Capture #####################
+    Using average f_clk from first five cycles to predict operation mode
 
-    if self.type == "SCL":
+    Returns:
+      mode: operation mode (Standard mode/Fast Mode/Fast Mode Plus)
+    """
+    if self.f_clk < 1.1e5:
+      mode = "Standard Mode"
+    elif self.f_clk < 4.4e5:
+      mode = "Fast Mode"
+    elif self.f_clk < 1.1e6:
+      mode = "Fast Mode Plus"
+
+    return mode
+
+  def process_1st_2nd_capture(self, datatype, data):
+    """Process 1st or 2nd Capture.
+
+    If 1st, write data.
+    If 2nd, solve datatime time zone when convert datatime to graphtime
+
+    Args:
+      datatype: SCL or SDA
+      data: numpy array of voltages values
+    """
+    if datatype == "SCL":
       self.scl_data = data
       self.scl_sampling_period = self.sampling_period
       if self.sda_data is None:
@@ -296,9 +316,6 @@ class HummingBird(AnalogMeasurer):
           np.savetxt(f, data)
         self.scl_start_time = self.start_time
       else:
-
-        ## solve time zone problem when convert datatime to graphtime
-
         dt = self.start_time.as_datetime().__str__().split(".")[0]
         dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
         subms = self.start_time.__str__().split(".")[1]
@@ -307,7 +324,7 @@ class HummingBird(AnalogMeasurer):
         self.scl_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
                                         nanosecond=ns, picosecond=ps)
 
-    elif self.type == "SDA":
+    elif datatype == "SDA":
       self.sda_data = data
       self.sda_sampling_period = self.sampling_period
       if self.scl_data is None:
@@ -318,9 +335,6 @@ class HummingBird(AnalogMeasurer):
           np.savetxt(f, data)
         self.sda_start_time = self.start_time
       else:
-
-        ## solve time zone problem when convert datatime to graphtime
-
         dt = self.start_time.as_datetime().__str__().split(".")[0]
         dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
         subms = self.start_time.__str__().split(".")[1]
@@ -329,394 +343,404 @@ class HummingBird(AnalogMeasurer):
         self.sda_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
                                         nanosecond=ns, picosecond=ps)
 
-    ############### Match the Range of Captures #####################
+  def match_start_end_time(self):
+    """Match start time and end time of SDA and SCL.
 
-    if self.sda_data is not None and self.scl_data is not None:
+    Find overlap region of the two captures
 
-      ## Match the start time of SDA and SCL
+    Raises:
+      Exception:  SDA and SCL data time range is not overlapped
+    """
+    if self.scl_start_time > self.sda_start_time:
+      delta_s = (self.scl_start_time - self.sda_start_time).__float__()
+      delta_s = round(delta_s / self.sda_sampling_period)
+      self.sda_data = self.sda_data[delta_s:]
+    else:
+      delta_s = (self.sda_start_time - self.scl_start_time).__float__()
+      delta_s = round(delta_s / self.scl_sampling_period)
+      self.scl_data = self.scl_data[delta_s:]
 
-      if self.scl_start_time > self.sda_start_time:
-        delta_s = (self.scl_start_time - self.sda_start_time).__float__()
-        delta_s = round(delta_s / self.sda_sampling_period)
-        self.sda_data = self.sda_data[delta_s:]
-      else:
-        delta_s = (self.sda_start_time - self.scl_start_time).__float__()
-        delta_s = round(delta_s / self.scl_sampling_period)
-        self.scl_data = self.scl_data[delta_s:]
+    if len(self.scl_data) < len(self.sda_data):
+      delta_e = len(self.sda_data) - len(self.scl_data)
+      if delta_e != 0:
+        self.sda_data = self.sda_data[:-delta_e]
+    else:
+      delta_e = len(self.scl_data) - len(self.sda_data)
+      if delta_e != 0:
+        self.scl_data = self.scl_data[:-delta_e]
 
-      ## Match the end time of SDA and SCL
+    if (not self.sda_data.any()) or (not self.scl_data.any()):
+      raise Exception(
+          "SDA data range and SCL data range needs to be overlapped!"
+          "Please capture again.")
 
-      if len(self.scl_data) < len(self.sda_data):
-        delta_e = len(self.sda_data) - len(self.scl_data)
-        if delta_e != 0:
-          self.sda_data = self.sda_data[:-delta_e]
-      else:
-        delta_e = len(self.scl_data) - len(self.sda_data)
-        if delta_e != 0:
-          self.scl_data = self.scl_data[:-delta_e]
+  def measure_both_scl_sda(self, measure_field, addr_list):
+    """When both SCL and SDA data is provided.
 
-      if (not self.sda_data.any()) or (not self.scl_data.any()):
-        raise Exception(
-            "SDA data range and SCL data range needs to be overlapped!",
-            "Please capture again.")
+    Args:
+      measure_field: measure value for each SPEC parameter
+      addr_list: device address included in the capture
 
-    ################### find SPEC value ##############################
-    # Constrain: should capture from START pattern
+    Returns:
+      measure_field: measure value for each SPEC parameter
+      addr_list: device address included in the capture
+    """
+    sda = Logic()
+    scl = Logic()
+    scl.state = 1  # assume SCL initial state is HIGH
+    read_flag = 0
 
-    field = [
-        "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "t_rise_sda",
-        "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low", "t_high", "T_clk",
-        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-        "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev", "t_HD_STA_S",
-        "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
-    ]
-    measure_field = {f: [] for f in field}
-    addr_list = []
+    v_sda = self.sda_data[0]
+    v_scl = self.scl_data[0]
+    v_low_scl = []
+    v_high_scl = []
+    v_low_sda = []
+    v_high_sda = []
+    addr = ""
+    for i in range(1, len(self.sda_data)):
+      n_sda = self.sda_data[i]
+      n_scl = self.scl_data[i]
+      if ((v_scl >= self.v_30p and n_scl < self.v_30p) or
+          (v_scl <= self.v_30p and n_scl > self.v_30p)):
+        scl.i_30p = i
+        if scl.i_70p is not None:  # falling edge
+          measure_field["t_fall_scl"].append([i, scl.i_30p - scl.i_70p])
+          scl.low_start = scl.i_30p
+          scl.state = 0
+          scl.i_30p = scl.i_70p = None
 
-    if self.sda_data is not None and self.scl_data is not None:
-      supported_measurements = [
-          "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
-          "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-          "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-          "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-          "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
-          "t_SU_STO", "t_BUF"
-      ]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        sda = Logic()
-        scl = Logic()
-        scl.state = 1  # assume SCL initial state is HIGH
-        read_flag = 0
+          ## Don't take t_buf into T_clk consideration
 
-        v_sda = self.sda_data[0]
-        v_scl = self.scl_data[0]
-        v_low_scl = []
-        v_high_scl = []
-        v_low_sda = []
-        v_high_sda = []
-        addr = ""
-        for i in range(1, len(self.sda_data)):
-          n_sda = self.sda_data[i]
-          n_scl = self.scl_data[i]
-          if ((v_scl >= v_30p and n_scl < v_30p) or
-              (v_scl <= v_30p and n_scl > v_30p)):
-            scl.i_30p = i
-            if scl.i_70p is not None:  # falling edge
-              measure_field["t_fall_scl"].append([i, scl.i_30p - scl.i_70p])
-              scl.low_start = scl.i_30p
-              scl.state = 0
-              scl.i_30p = scl.i_70p = None
+          if scl.last_low_start is not None and self.data_start_flag:
+            measure_field["T_clk"].append(
+                [i, scl.low_start - scl.last_low_start])
+          scl.last_low_start = scl.low_start
 
-              ## Don't take t_buf into T_clk consideration
+          ## Finish one package in 9 SCL clk cycles, check finish at clk LOW
 
-              if scl.last_low_start is not None and self.data_start_flag:
-                measure_field["T_clk"].append(
-                    [i, scl.low_start - scl.last_low_start])
-              scl.last_low_start = scl.low_start
+          if self.data_start_flag == 9:
+            self.data_start_flag = 0
+            if self.first_packet:
+              addr_list.append(addr)
+              self.first_packet = 0
 
-              ## Finish one package in 9 SCL clk cycles, check finish at clk LOW
-
-              if self.data_start_flag == 9:
-                self.data_start_flag = 0
-                if self.first_packet:
-                  addr_list.append(addr)
-                  self.first_packet = 0
-
-            else:  # rising edge
-              scl.low_end = scl.i_30p
-              if scl.low_start is not None:
-                if v_low_scl:
-
-                  # Additional 3rd dimension for plot rect width
-
-                  measure_field["v_low_scl"].append(
-                      [i, np.median(v_low_scl), scl.low_end - scl.low_start])
-                  v_low_scl = []
-                measure_field["t_low"].append([i, scl.low_end - scl.low_start])
-              scl.state = None
-
-          if ((v_scl >= v_70p and n_scl < v_70p) or
-              (v_scl <= v_70p and n_scl > v_70p)):
-            scl.i_70p = i
-            if scl.i_30p is not None:  # rising edge
-              measure_field["t_rise_scl"].append([i, scl.i_70p - scl.i_30p])
-              scl.high_start = scl.i_70p
-              scl.state = 1
-              scl.i_30p = scl.i_70p = None
-
-              ## Don't take t_buf into T_clk consideration
-
-              if scl.last_high_start is not None and self.data_start_flag:
-                measure_field["T_clk"].append(
-                    [i, scl.high_start - scl.last_high_start])
-              scl.last_high_start = scl.high_start
-              if ((self.restart_flag or self.start_flag) and
-                  not self.data_start_flag):
-                self.data_start_flag = 1
-              elif self.data_start_flag:
-                self.data_start_flag += 1  # count SCL clk cycle at HIGH
-
-            else:  # falling edge
-              scl.high_end = scl.i_70p
-              if scl.high_start is not None:
-                if v_high_scl:
-                  measure_field["v_high_scl"].append(
-                      [i, np.median(v_high_scl), scl.high_end - scl.high_start])
-                  v_high_scl = []
-                measure_field["t_high"].append(
-                    [i, scl.high_end - scl.high_start])
-
-              ## check Read/Write at 8th SCL clk cycle
-
-              if (self.first_packet and
-                  (self.data_start_flag == 8 and sda.state == 1)):
-                read_flag = 1
-
-              if self.first_packet and (0 < self.data_start_flag < 8):
-                if sda.state:
-                  addr += "1"
-                else:
-                  addr += "0"
-              scl.state = None
-
-          if ((v_sda >= v_30p and n_sda < v_30p) or
-              (v_sda <= v_30p and n_sda > v_30p)):
-            sda.i_30p = i
-            if sda.i_70p is not None:  # falling edge
-              measure_field["t_fall_sda"].append([i, sda.i_30p - sda.i_70p])
-              sda.low_start = sda.i_30p
-              sda.state = 0
-              sda.i_30p = sda.i_70p = None
-
-            else:  # rising edge
-              sda.low_end = sda.i_30p
-              if v_low_sda and sda.low_start:
-                measure_field["v_low_sda"].append(
-                    [i, np.median(v_low_sda), sda.low_end - sda.low_start])
-                v_low_sda = []
-              sda.state = None
-
-          if ((v_sda >= v_70p and n_sda < v_70p) or
-              (v_sda <= v_70p and n_sda > v_70p)):
-            sda.i_70p = i
-            if sda.i_30p is not None:  # rising edge
-              measure_field["t_rise_sda"].append([i, sda.i_70p - sda.i_30p])
-              sda.high_start = sda.i_70p
-              sda.state = 1
-              sda.i_30p = sda.i_70p = None
-
-            else:  # falling edge
-              sda.high_end = sda.i_70p
-              if v_high_sda and sda.high_start:
-                measure_field["v_high_sda"].append(
-                    [i, np.median(v_high_sda), sda.high_end - sda.high_start])
-                v_high_sda = []
-              sda.state = None
-
-          if (scl.state == 0) and (sda.high_end == i) and self.data_start_flag:
-            if ((self.first_packet and self.data_start_flag == 9) or
-                (not self.first_packet and read_flag and
-                 self.data_start_flag != 9)):
-              measure_field["t_HD_DAT_falling_dev"].append(
-                  [i, sda.high_end - scl.low_start])
-            else:
-              measure_field["t_HD_DAT_falling_host"].append(
-                  [i, sda.high_end - scl.low_start])
-
-          if (scl.state == 0) and (sda.low_end == i) and self.data_start_flag:
-            if ((self.first_packet and self.data_start_flag == 9) or
-                (not self.first_packet and read_flag and
-                 self.data_start_flag != 9)):
-              measure_field["t_HD_DAT_rising_dev"].append(
-                  [i, sda.low_end - scl.low_start])
-            else:
-              measure_field["t_HD_DAT_rising_host"].append(
-                  [i, sda.low_end - scl.low_start])
-
-          if ((sda.state == 0) and (scl.low_end == i) and
-              ((scl.low_start is None) or (scl.low_start < sda.low_start)) and
-              self.data_start_flag):
-            if ((self.first_packet and self.data_start_flag == 8) or
-                (not self.first_packet and read_flag and
-                 self.data_start_flag != 8)):
-              measure_field["t_SU_DAT_falling_dev"].append(
-                  [i, scl.low_end - sda.low_start])
-            else:
-              measure_field["t_SU_DAT_falling_host"].append(
-                  [i, scl.low_end - sda.low_start])
-          if ((sda.state == 1) and (scl.low_end == i) and
-              ((scl.low_start is None) or (scl.low_start < sda.high_start)) and
-              self.data_start_flag):
-            if ((self.first_packet and self.data_start_flag == 8) or
-                (not self.first_packet and read_flag and
-                 self.data_start_flag != 8)):
-              measure_field["t_SU_DAT_rising_dev"].append(
-                  [i, scl.low_end - sda.high_start])
-            else:
-              measure_field["t_SU_DAT_rising_host"].append(
-                  [i, scl.low_end - sda.high_start])
-
-          if (scl.state == 1) and (sda.high_end == i):
-            if not self.stop_flag:  # Sr
-              self.restart_flag = 1
-              self.first_packet = 1
-              self.start_flag = 0
-              self.data_start_flag = 0
-              addr = ""
-              measure_field["t_SU_STA"].append([i, sda.high_end-scl.high_start])
-            else:  # S
-              self.start_flag = 1
-              self.first_packet = 1
-              self.stop_flag = 0
-              self.data_start_flag = 0
-              addr = ""
-              if sda.high_start is not None:
-                measure_field["t_BUF"].append([i, sda.high_end-sda.high_start])
-
-          if ((sda.state == 0) and (scl.high_end == i) and
-              ((scl.high_start is None) or (scl.high_start < sda.low_start))):
-            if self.restart_flag:
-              measure_field["t_HD_STA_Sr"].append(
-                  [i, scl.high_end - sda.low_start])
-            elif self.start_flag:
-              measure_field["t_HD_STA_S"].append(
-                  [i, scl.high_end - sda.low_start])
-
-          if ((scl.state == 1) and (sda.low_end == i) and
-              scl.high_start is not None):
-            self.stop_flag = 1
-            read_flag = 0
-            self.restart_flag = self.start_flag = 0
-            measure_field["t_SU_STO"].append([i, sda.low_end - scl.high_start])
-
-          # Constrain: captured data should include START or RESTART pattern
-
-          if (scl.state == 0) and not self.stop_flag:
-            v_low_scl.append(n_scl)
-          elif (scl.state == 1) and not self.stop_flag:
-            v_high_scl.append(n_scl)
-          if (sda.state == 0) and self.data_start_flag:
-            v_low_sda.append(n_sda)
-          elif (sda.state == 1) and self.data_start_flag:
-            v_high_sda.append(n_sda)
-
-          v_sda = n_sda
-          v_scl = n_scl
-
-    elif self.sda_data is None and self.scl_data is not None:
-      supported_measurements = ["t_rise_scl", "t_fall_scl", "t_low", "t_high"]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        scl = Logic()
-        v_low_scl = []
-        v_high_scl = []
-
-        v_scl = self.scl_data[0]
-        for i, n_scl in enumerate(self.scl_data[1:]):
-          if ((v_scl >= v_30p and n_scl < v_30p) or
-              (v_scl <= v_30p and n_scl > v_30p)):
-            scl.i_30p = i
-            if scl.i_70p is not None:  # falling edge
-              measure_field["t_fall_scl"].append([i, scl.i_30p - scl.i_70p])
-              scl.low_start = scl.i_30p
-              scl.i_30p = scl.i_70p = None
-              if scl.last_low_start is not None:
-                measure_field["T_clk"].append(
-                    [i, scl.low_start - scl.last_low_start])
-              scl.last_low_start = scl.low_start
-
-            else:  # rising edge
-              scl.low_end = scl.i_30p
-              if scl.low_start is not None:
-                if v_low_scl:
-                  measure_field["v_low_scl"].append(
-                      [i, np.median(v_low_scl), scl.low_end - scl.low_start])
-                  v_low_scl = []
-                measure_field["t_low"].append([i, scl.low_end - scl.low_start])
-                scl.low_start = None
-
-          if ((v_scl >= v_70p and n_scl < v_70p) or
-              (v_scl <= v_70p and n_scl > v_70p)):
-            scl.i_70p = i
-            if scl.i_30p is not None:  # rising edge
-              measure_field["t_rise_scl"].append([i, scl.i_70p - scl.i_30p])
-              scl.high_start = scl.i_70p
-              scl.i_30p = scl.i_70p = None
-              if scl.last_high_start is not None:
-                measure_field["T_clk"].append(
-                    [i, scl.high_start - scl.last_high_start])
-              scl.last_high_start = scl.high_start
-
-            else:  # falling edge
-              scl.high_end = scl.i_70p
-              if scl.high_start is not None:
-                if v_high_scl:
-                  measure_field["v_high_scl"].append(
-                      [i, np.median(v_high_scl), scl.high_end - scl.high_start])
-                  v_high_scl = []
-                measure_field["t_high"].append(
-                    [i, scl.high_end - scl.high_start])
-                scl.high_start = None
-
+        else:  # rising edge
+          scl.low_end = scl.i_30p
           if scl.low_start is not None:
-            v_low_scl.append(n_scl)
+            if v_low_scl:
+
+              # Additional 3rd dimension for plot rect width
+
+              measure_field["v_low_scl"].append(
+                  [i, np.median(v_low_scl), scl.low_end - scl.low_start])
+              v_low_scl = []
+            measure_field["t_low"].append([i, scl.low_end - scl.low_start])
+          scl.state = None
+
+      if ((v_scl >= self.v_70p and n_scl < self.v_70p) or
+          (v_scl <= self.v_70p and n_scl > self.v_70p)):
+        scl.i_70p = i
+        if scl.i_30p is not None:  # rising edge
+          measure_field["t_rise_scl"].append([i, scl.i_70p - scl.i_30p])
+          scl.high_start = scl.i_70p
+          scl.state = 1
+          scl.i_30p = scl.i_70p = None
+
+          ## Don't take t_buf into T_clk consideration
+
+          if scl.last_high_start is not None and self.data_start_flag:
+            measure_field["T_clk"].append(
+                [i, scl.high_start - scl.last_high_start])
+          scl.last_high_start = scl.high_start
+          if ((self.restart_flag or self.start_flag) and
+              not self.data_start_flag):
+            self.data_start_flag = 1
+          elif self.data_start_flag:
+            self.data_start_flag += 1  # count SCL clk cycle at HIGH
+
+        else:  # falling edge
+          scl.high_end = scl.i_70p
           if scl.high_start is not None:
-            v_high_scl.append(n_scl)
-          v_scl = n_scl
+            if v_high_scl:
+              measure_field["v_high_scl"].append(
+                  [i, np.median(v_high_scl), scl.high_end - scl.high_start])
+              v_high_scl = []
+            measure_field["t_high"].append(
+                [i, scl.high_end - scl.high_start])
 
-    elif self.sda_data is not None and self.scl_data is None:
-      supported_measurements = ["t_rise_sda", "t_fall_sda"]
-      if any(k.split("_worst")[0] in supported_measurements
-             for k in self.requested_measurements):
-        sda = Logic()
-        v_low_sda = []
-        v_high_sda = []
+          ## check Read/Write at 8th SCL clk cycle
 
-        v_sda = self.sda_data[0]
-        for i, n_sda in enumerate(self.sda_data[1:]):
-          if ((v_sda >= v_30p and n_sda < v_30p) or
-              (v_sda <= v_30p and n_sda > v_30p)):
-            sda.i_30p = i
-            if sda.i_70p is not None:  # falling edge
-              measure_field["t_fall_sda"].append([i, sda.i_30p - sda.i_70p])
-              sda.low_start = sda.i_30p
-              sda.i_30p = sda.i_70p = None
+          if (self.first_packet and
+              (self.data_start_flag == 8 and sda.state == 1)):
+            read_flag = 1
 
-            else:  # rising edge
-              sda.low_end = sda.i_30p
-              if v_low_sda and sda.low_start:
-                measure_field["v_low_sda"].append(
-                    [i, np.median(v_low_sda), sda.low_end - sda.low_start])
-                v_low_sda = []
-              sda.low_end = sda.low_start = None
+          if self.first_packet and (0 < self.data_start_flag < 8):
+            if sda.state:
+              addr += "1"
+            else:
+              addr += "0"
+          scl.state = None
 
-          if ((v_sda >= v_70p and n_sda < v_70p) or
-              (v_sda <= v_70p and n_sda > v_70p)):
-            sda.i_70p = i
-            if sda.i_30p is not None:  # rising edge
-              measure_field["t_rise_sda"].append([i, sda.i_70p - sda.i_30p])
-              sda.high_start = sda.i_70p
-              sda.i_30p = sda.i_70p = None
+      if ((v_sda >= self.v_30p and n_sda < self.v_30p) or
+          (v_sda <= self.v_30p and n_sda > self.v_30p)):
+        sda.i_30p = i
+        if sda.i_70p is not None:  # falling edge
+          measure_field["t_fall_sda"].append([i, sda.i_30p - sda.i_70p])
+          sda.low_start = sda.i_30p
+          sda.state = 0
+          sda.i_30p = sda.i_70p = None
 
-            else:  # falling edge
-              sda.high_end = sda.i_70p
-              if v_high_sda and sda.high_start:
-                measure_field["v_high_sda"].append(
-                    [i, np.median(v_high_sda), sda.high_end - sda.high_start])
-                v_high_sda = []
-              sda.high_end = sda.high_start = None
+        else:  # rising edge
+          sda.low_end = sda.i_30p
+          if v_low_sda and sda.low_start:
+            measure_field["v_low_sda"].append(
+                [i, np.median(v_low_sda), sda.low_end - sda.low_start])
+            v_low_sda = []
+          sda.state = None
 
-          if sda.low_start:
-            v_low_sda.append(n_sda)
-          elif sda.high_start:
-            v_high_sda.append(n_sda)
+      if ((v_sda >= self.v_70p and n_sda < self.v_70p) or
+          (v_sda <= self.v_70p and n_sda > self.v_70p)):
+        sda.i_70p = i
+        if sda.i_30p is not None:  # rising edge
+          measure_field["t_rise_sda"].append([i, sda.i_70p - sda.i_30p])
+          sda.high_start = sda.i_70p
+          sda.state = 1
+          sda.i_30p = sda.i_70p = None
 
-          v_sda = n_sda
+        else:  # falling edge
+          sda.high_end = sda.i_70p
+          if v_high_sda and sda.high_start:
+            measure_field["v_high_sda"].append(
+                [i, np.median(v_high_sda), sda.high_end - sda.high_start])
+            v_high_sda = []
+          sda.state = None
 
-    ################### check SPEC limitation ##############################
+      if (scl.state == 0) and (sda.high_end == i) and self.data_start_flag:
+        if ((self.first_packet and self.data_start_flag == 9) or
+            (not self.first_packet and read_flag and
+             self.data_start_flag != 9)):
+          measure_field["t_HD_DAT_falling_dev"].append(
+              [i, sda.high_end - scl.low_start])
+        else:
+          measure_field["t_HD_DAT_falling_host"].append(
+              [i, sda.high_end - scl.low_start])
 
+      if (scl.state == 0) and (sda.low_end == i) and self.data_start_flag:
+        if ((self.first_packet and self.data_start_flag == 9) or
+            (not self.first_packet and read_flag and
+             self.data_start_flag != 9)):
+          measure_field["t_HD_DAT_rising_dev"].append(
+              [i, sda.low_end - scl.low_start])
+        else:
+          measure_field["t_HD_DAT_rising_host"].append(
+              [i, sda.low_end - scl.low_start])
+
+      if ((sda.state == 0) and (scl.low_end == i) and
+          ((scl.low_start is None) or (scl.low_start < sda.low_start)) and
+          self.data_start_flag):
+        if ((self.first_packet and self.data_start_flag == 8) or
+            (not self.first_packet and read_flag and
+             self.data_start_flag != 8)):
+          measure_field["t_SU_DAT_falling_dev"].append(
+              [i, scl.low_end - sda.low_start])
+        else:
+          measure_field["t_SU_DAT_falling_host"].append(
+              [i, scl.low_end - sda.low_start])
+      if ((sda.state == 1) and (scl.low_end == i) and
+          ((scl.low_start is None) or (scl.low_start < sda.high_start)) and
+          self.data_start_flag):
+        if ((self.first_packet and self.data_start_flag == 8) or
+            (not self.first_packet and read_flag and
+             self.data_start_flag != 8)):
+          measure_field["t_SU_DAT_rising_dev"].append(
+              [i, scl.low_end - sda.high_start])
+        else:
+          measure_field["t_SU_DAT_rising_host"].append(
+              [i, scl.low_end - sda.high_start])
+
+      if (scl.state == 1) and (sda.high_end == i):
+        if not self.stop_flag:  # Sr
+          self.restart_flag = 1
+          self.first_packet = 1
+          self.start_flag = 0
+          self.data_start_flag = 0
+          addr = ""
+          measure_field["t_SU_STA"].append([i, sda.high_end-scl.high_start])
+        else:  # S
+          self.start_flag = 1
+          self.first_packet = 1
+          self.stop_flag = 0
+          self.data_start_flag = 0
+          addr = ""
+          if sda.high_start is not None:
+            measure_field["t_BUF"].append([i, sda.high_end-sda.high_start])
+
+      if ((sda.state == 0) and (scl.high_end == i) and
+          ((scl.high_start is None) or (scl.high_start < sda.low_start))):
+        if self.restart_flag:
+          measure_field["t_HD_STA_Sr"].append(
+              [i, scl.high_end - sda.low_start])
+        elif self.start_flag:
+          measure_field["t_HD_STA_S"].append(
+              [i, scl.high_end - sda.low_start])
+
+      if ((scl.state == 1) and (sda.low_end == i) and
+          scl.high_start is not None):
+        self.stop_flag = 1
+        read_flag = 0
+        self.restart_flag = self.start_flag = 0
+        measure_field["t_SU_STO"].append([i, sda.low_end - scl.high_start])
+
+      # Constrain: captured data should include START or RESTART pattern
+
+      if (scl.state == 0) and not self.stop_flag:
+        v_low_scl.append(n_scl)
+      elif (scl.state == 1) and not self.stop_flag:
+        v_high_scl.append(n_scl)
+      if (sda.state == 0) and self.data_start_flag:
+        v_low_sda.append(n_sda)
+      elif (sda.state == 1) and self.data_start_flag:
+        v_high_sda.append(n_sda)
+
+      v_sda = n_sda
+      v_scl = n_scl
+
+    return measure_field, addr_list
+
+  def measure_only_scl(self, measure_field):
+    """When only SCL data is provided.
+
+    Args:
+      measure_field: measure value for each SPEC parameter
+
+    Returns:
+      measure_field: measure value for each SPEC parameter
+    """
+    scl = Logic()
+    v_low_scl = []
+    v_high_scl = []
+
+    v_scl = self.scl_data[0]
+    for i, n_scl in enumerate(self.scl_data[1:]):
+      if ((v_scl >= self.v_30p and n_scl < self.v_30p) or
+          (v_scl <= self.v_30p and n_scl > self.v_30p)):
+        scl.i_30p = i
+        if scl.i_70p is not None:  # falling edge
+          measure_field["t_fall_scl"].append([i, scl.i_30p - scl.i_70p])
+          scl.low_start = scl.i_30p
+          scl.i_30p = scl.i_70p = None
+          if scl.last_low_start is not None:
+            measure_field["T_clk"].append(
+                [i, scl.low_start - scl.last_low_start])
+          scl.last_low_start = scl.low_start
+
+        else:  # rising edge
+          scl.low_end = scl.i_30p
+          if scl.low_start is not None:
+            if v_low_scl:
+              measure_field["v_low_scl"].append(
+                  [i, np.median(v_low_scl), scl.low_end - scl.low_start])
+              v_low_scl = []
+            measure_field["t_low"].append([i, scl.low_end - scl.low_start])
+            scl.low_start = None
+
+      if ((v_scl >= self.v_70p and n_scl < self.v_70p) or
+          (v_scl <= self.v_70p and n_scl > self.v_70p)):
+        scl.i_70p = i
+        if scl.i_30p is not None:  # rising edge
+          measure_field["t_rise_scl"].append([i, scl.i_70p - scl.i_30p])
+          scl.high_start = scl.i_70p
+          scl.i_30p = scl.i_70p = None
+          if scl.last_high_start is not None:
+            measure_field["T_clk"].append(
+                [i, scl.high_start - scl.last_high_start])
+          scl.last_high_start = scl.high_start
+
+        else:  # falling edge
+          scl.high_end = scl.i_70p
+          if scl.high_start is not None:
+            if v_high_scl:
+              measure_field["v_high_scl"].append(
+                  [i, np.median(v_high_scl), scl.high_end - scl.high_start])
+              v_high_scl = []
+            measure_field["t_high"].append(
+                [i, scl.high_end - scl.high_start])
+            scl.high_start = None
+
+      if scl.low_start is not None:
+        v_low_scl.append(n_scl)
+      if scl.high_start is not None:
+        v_high_scl.append(n_scl)
+      v_scl = n_scl
+
+    return measure_field
+
+  def measure_only_sda(self, measure_field):
+    """When only SDA data is provided.
+
+    Args:
+      measure_field: measure value for each SPEC parameter
+
+    Returns:
+      measure_field: measure value for each SPEC parameter
+    """
+    sda = Logic()
+    v_low_sda = []
+    v_high_sda = []
+
+    v_sda = self.sda_data[0]
+    for i, n_sda in enumerate(self.sda_data[1:]):
+      if ((v_sda >= self.v_30p and n_sda < self.v_30p) or
+          (v_sda <= self.v_30p and n_sda > self.v_30p)):
+        sda.i_30p = i
+        if sda.i_70p is not None:  # falling edge
+          measure_field["t_fall_sda"].append([i, sda.i_30p - sda.i_70p])
+          sda.low_start = sda.i_30p
+          sda.i_30p = sda.i_70p = None
+
+        else:  # rising edge
+          sda.low_end = sda.i_30p
+          if v_low_sda and sda.low_start:
+            measure_field["v_low_sda"].append(
+                [i, np.median(v_low_sda), sda.low_end - sda.low_start])
+            v_low_sda = []
+          sda.low_end = sda.low_start = None
+
+      if ((v_sda >= self.v_70p and n_sda < self.v_70p) or
+          (v_sda <= self.v_70p and n_sda > self.v_70p)):
+        sda.i_70p = i
+        if sda.i_30p is not None:  # rising edge
+          measure_field["t_rise_sda"].append([i, sda.i_70p - sda.i_30p])
+          sda.high_start = sda.i_70p
+          sda.i_30p = sda.i_70p = None
+
+        else:  # falling edge
+          sda.high_end = sda.i_70p
+          if v_high_sda and sda.high_start:
+            measure_field["v_high_sda"].append(
+                [i, np.median(v_high_sda), sda.high_end - sda.high_start])
+            v_high_sda = []
+          sda.high_end = sda.high_start = None
+
+      if sda.low_start:
+        v_low_sda.append(n_sda)
+      elif sda.high_start:
+        v_high_sda.append(n_sda)
+
+      v_sda = n_sda
+
+    return measure_field
+
+  def get_spec_limitation(self, mode, vs):
+    """Get SPEC limitation according to mode.
+
+    Args:
+      mode: operation mode (Standard mode/Fast Mode/Fast Mode Plus)
+      vs: working voltage
+
+    Returns:
+      spec_limit: limitation for each parameter
+    """
     spec_limit_sm = {
         "v_low": 0.3 * vs, "v_high": 0.7 * vs, "v_nh": 0.2, "v_nl": 0.1,
         "t_rise_max": 1e-6, "t_fall_max": 3e-7, "t_low": 4.7e-6, "t_high": 4e-6,
@@ -744,13 +768,28 @@ class HummingBird(AnalogMeasurer):
         "v_nh": 0.2, "v_nl": 0.1, "v_low": 0.3 * vs, "v_high": 0.7 * vs
     }
 
-    if self.mode == "Standard Mode":
+    if mode == "Standard Mode":
       spec_limit = spec_limit_sm
-    elif self.mode == "Fast Mode":
+    elif mode == "Fast Mode":
       spec_limit = spec_limit_fm
-    elif self.mode == "Fast Mode Plus":
+    elif mode == "Fast Mode Plus":
       spec_limit = spec_limit_fmp
 
+    return spec_limit
+
+  def check_spec(self, spec_limit, measure_field, vs):
+    """Check SPEC with each parameters.
+
+    Args:
+      spec_limit: spec limitation of each parameter
+      measure_field: all measurement of each parameter
+      vs: working voltage
+
+    Returns:
+      values: max, min, worst measurement of each parameter
+      result: pass/fail, margin of each parameter
+      svgwidth: worst case width for SVG plot
+    """
     values = {}
     result = {}
     svgwidth = {}
@@ -780,11 +819,11 @@ class HummingBird(AnalogMeasurer):
       ff2 = "_".join(f.split("_")[:-1])
       if self.requested_measurements[f + "_worst"] and measure_field[ff]:
         if "nh" in f:
-          values[f + "_max"] = (values[ff + "_max"] - v_70p) / vs
-          values[f + "_min"] = (values[ff + "_min"] - v_70p) / vs
+          values[f + "_max"] = (values[ff + "_max"] - self.v_70p) / vs
+          values[f + "_min"] = (values[ff + "_min"] - self.v_70p) / vs
         elif "nl" in f:
-          values[f + "_max"] = (v_30p - values[ff + "_min"]) / vs
-          values[f + "_min"] = (v_30p - values[ff + "_max"]) / vs
+          values[f + "_max"] = (self.v_30p - values[ff + "_min"]) / vs
+          values[f + "_min"] = (self.v_30p - values[ff + "_max"]) / vs
         values[f + "_worst"] = values[f + "_min"]
         result[f + "_idx"] = result[ff + "_idx"]
         svgwidth[f] = svgwidth[ff]
@@ -911,6 +950,154 @@ class HummingBird(AnalogMeasurer):
           result[f + "_margin"] = limit_max - values[f + "_max"]
         result[f + "_percent"] = result[f + "_margin"]/limit_max * 100
 
+    return values, result, svgwidth
+
+  def get_svg_fields(self, result, svgwidth):
+    """Save SVG Data for Each parameter.
+
+    Calculate Max/Min Value for Plot Boundary
+    Then generate svg plot for each parameter
+
+    Args:
+      result: get start idx of worst waveform
+      svgwidth: get width of worst waveform
+
+    Returns:
+      svg_fields: svg plots to draw on html report
+    """
+    if self.scl_data is not None:
+      scl_v_max = np.max(self.scl_data)
+      scl_v_min = np.min(self.scl_data)
+    if self.sda_data is not None:
+      sda_v_max = np.max(self.sda_data)
+      sda_v_min = np.min(self.sda_data)
+
+    svg_fields = {}
+
+    fields1 = [
+        "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
+        "t_high", "f_clk", "v_nl_scl", "v_nh_scl"
+    ]
+    svg_fields["scl"] = SVGFile(
+        self.scl_data, scl_v_max, scl_v_min, None, None, "scl_show"
+    )
+    for f in fields1:
+      if result.get(f + "_idx"):
+        idx = result[f + "_idx"]
+        start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
+        end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
+        svg_fields[f] = SVGFile(
+            self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
+            idx - start_idx, svgwidth[f], f
+        )
+
+    fields2 = [
+        "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda", "v_nl_sda",
+        "v_nh_sda"
+    ]
+    svg_fields["sda"] = SVGFile(
+        self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show")
+    for f in fields2:
+      if result.get(f + "_idx"):
+        idx = result[f + "_idx"]
+        start_idx = int(max(0, min(idx - 1000, len(self.sda_data) - 2000)))
+        end_idx = int(min(len(self.sda_data), max(idx + 1000, 2000)))
+        svg_fields[f] = SVGFile(
+            self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
+            idx - start_idx, svgwidth[f], f
+        )
+
+    fields3 = [
+        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
+        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
+        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
+        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev",
+        "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
+    ]
+    for f in fields3:
+      if result.get(f + "_idx"):
+        idx = result[f + "_idx"]
+        start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
+        end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
+        svg_fields[f + "_scl"] = SVGFile(
+            self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
+            idx - start_idx, svgwidth[f], f + "_scl"
+        )
+        svg_fields[f + "_sda"] = SVGFile(
+            self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
+            idx - start_idx, svgwidth[f], f + "_sda"
+        )
+
+    return svg_fields
+
+  def measure(self):
+    """Measure.
+
+    This method is called after all the relevant data has been passed
+    to process_data function. It returns a dictionary of the required
+    measurements values.
+
+    Returns:
+      values: dictionary of request_measurements values
+    """
+    data = np.concatenate(self.samples)
+
+    vs = self.determine_working_voltage(data)
+    datatype = self.determine_datatype(data)
+
+    mode = None
+    if self.f_clk is not None:  # Read from 1st SCL capture
+      mode = self.determine_operation_mode()
+
+    self.process_1st_2nd_capture(datatype, data)
+    if self.sda_data is not None and self.scl_data is not None:
+      self.match_start_end_time()
+
+    ################### find SPEC value ##############################
+    # Constrain: should capture from START pattern
+
+    field = [
+        "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "t_rise_sda",
+        "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low", "t_high", "T_clk",
+        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
+        "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
+        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev", "t_HD_STA_S",
+        "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
+    ]
+    measure_field = {f: [] for f in field}
+    addr_list = []
+
+    if self.sda_data is not None and self.scl_data is not None:
+      supported_measurements = [
+          "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
+          "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
+          "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
+          "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
+          "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
+          "t_SU_STO", "t_BUF"
+      ]
+      if any(k.split("_worst")[0] in supported_measurements
+             for k in self.requested_measurements):
+        measure_field, addr_list = self.measure_both_scl_sda(
+            measure_field, addr_list)
+
+    elif self.sda_data is None and self.scl_data is not None:
+      supported_measurements = ["t_rise_scl", "t_fall_scl", "t_low", "t_high"]
+      if any(k.split("_worst")[0] in supported_measurements
+             for k in self.requested_measurements):
+        measure_field = self.measure_only_scl(measure_field)
+
+    elif self.sda_data is not None and self.scl_data is None:
+      supported_measurements = ["t_rise_sda", "t_fall_sda"]
+      if any(k.split("_worst")[0] in supported_measurements
+             for k in self.requested_measurements):
+        measure_field = self.measure_only_sda(measure_field)
+
+    ################### check SPEC limitation ##############################
+
+    spec_limit = self.get_spec_limitation(mode, vs)
+    values, result, svgwidth = self.check_spec(spec_limit, measure_field, vs)
+
     fail = {}
     if self.requested_measurements["spec"]:
       fail = {param: result for (param, result) in result.items()
@@ -922,76 +1109,15 @@ class HummingBird(AnalogMeasurer):
       num_pass = len(passes)
       values["spec"] = len(fail)
 
-    uni_addr = list(set(addr_list))
-    uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
+    ############### Generate and Show Report ##############
 
-    ################### SVG Plot ##############################
-    # Calculate Max/Min Value for Plot Boundary
-
-    if self.scl_data is not None:
-      scl_v_max = np.max(self.scl_data)
-      scl_v_min = np.min(self.scl_data)
-    if self.sda_data is not None:
-      sda_v_max = np.max(self.sda_data)
-      sda_v_min = np.min(self.sda_data)
-
-    # Save SVG Data for Each Field
-
-    svg_fields = {}
     if self.scl_data is not None and self.sda_data is not None:
-      fields1 = [
-          "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
-          "t_high", "f_clk", "v_nl_scl", "v_nh_scl"
-      ]
-      svg_fields["scl"] = SVGFile(self.scl_data, scl_v_max, scl_v_min, None,
-                                  None, "scl_show")
-      for f in fields1:
-        if result.get(f + "_idx"):
-          idx = result[f + "_idx"]
-          start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
-          end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
-          svg_fields[f] = SVGFile(self.scl_data[start_idx:end_idx], scl_v_max,
-                                  scl_v_min, idx - start_idx, svgwidth[f], f)
+      uni_addr = list(set(addr_list))
+      uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
 
-      fields2 = [
-          "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda", "v_nl_sda",
-          "v_nh_sda"
-      ]
-      svg_fields["sda"] = SVGFile(self.sda_data, sda_v_max, sda_v_min, None,
-                                  None, "sda_show")
-      for f in fields2:
-        if result.get(f + "_idx"):
-          idx = result[f + "_idx"]
-          start_idx = int(max(0, min(idx - 1000, len(self.sda_data) - 2000)))
-          end_idx = int(min(len(self.sda_data), max(idx + 1000, 2000)))
-          svg_fields[f] = SVGFile(self.sda_data[start_idx:end_idx], sda_v_max,
-                                  sda_v_min, idx - start_idx, svgwidth[f], f)
-
-      fields3 = [
-          "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-          "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-          "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-          "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev",
-          "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
-      ]
-      for f in fields3:
-        if result.get(f + "_idx"):
-          idx = result[f + "_idx"]
-          start_idx = int(max(0, min(idx - 1000, len(self.scl_data) - 2000)))
-          end_idx = int(min(len(self.scl_data), max(idx + 1000, 2000)))
-          svg_fields[f + "_scl"] = SVGFile(
-              self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
-              idx - start_idx, svgwidth[f], f + "_scl"
-          )
-          svg_fields[f + "_sda"] = SVGFile(
-              self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
-              idx - start_idx, svgwidth[f], f + "_sda"
-          )
-
-      ############### Generate and Show Report ##############
-
+      svg_fields = self.get_svg_fields(result, svgwidth)
       report_path = OutputReportFile(
-          self.mode, spec_limit.copy(), vs, values.copy(), result.copy(),
+          mode, spec_limit.copy(), vs, values.copy(), result.copy(),
           fail.copy(), num_pass, svg_fields, uni_addr)
       subprocess.run(["open", report_path], check=True)
 
