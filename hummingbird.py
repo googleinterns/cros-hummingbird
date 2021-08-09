@@ -6,6 +6,7 @@ would be running I2C electrical test on capture data.
 
 """
 import datetime
+import math
 import os
 import subprocess
 
@@ -257,8 +258,8 @@ class HummingBird(AnalogMeasurer):
         break
 
     if len(clk_dataline) > 7:
-      clk_dataline = np.sort(clk_dataline)[:5]
-      t_clk = clk_dataline[-1]  # avg period time
+      clk_dataline = np.sort(clk_dataline)[:-2]
+      t_clk = clk_dataline[-1]  # max period time
       t_clk2 = clk_dataline[0]  # min period time
       stable = (t_clk - t_clk2) / t_clk2 * 100
 
@@ -416,7 +417,8 @@ class HummingBird(AnalogMeasurer):
       n_scl = self.scl_data[i]
       if ((v_scl >= self.v_30p and n_scl < self.v_30p) or
           (v_scl <= self.v_30p and n_scl > self.v_30p)):
-        scl.i_30p = i
+        interpolation = (self.v_30p - n_scl) / (v_scl - n_scl)
+        scl.i_30p = i - interpolation
         if scl.i_70p is not None:  # falling edge
           measure_field = self.add_measurement(
               measure_field, "t_fall_scl", [i, scl.i_30p - scl.i_70p]
@@ -457,7 +459,8 @@ class HummingBird(AnalogMeasurer):
 
       if ((v_scl >= self.v_70p and n_scl < self.v_70p) or
           (v_scl <= self.v_70p and n_scl > self.v_70p)):
-        scl.i_70p = i
+        interpolation = (self.v_70p - n_scl) / (v_scl - n_scl)
+        scl.i_70p = i - interpolation
         if scl.i_30p is not None:  # rising edge
           measure_field = self.add_measurement(
               measure_field, "t_rise_scl", [i, scl.i_70p - scl.i_30p]
@@ -508,7 +511,8 @@ class HummingBird(AnalogMeasurer):
 
       if ((v_sda >= self.v_30p and n_sda < self.v_30p) or
           (v_sda <= self.v_30p and n_sda > self.v_30p)):
-        sda.i_30p = i
+        interpolation = (self.v_30p - n_sda) / (v_sda - n_sda)
+        sda.i_30p = i - interpolation
         if sda.i_70p is not None:  # falling edge
           measure_field = self.add_measurement(
               measure_field, "t_fall_sda", [i, sda.i_30p - sda.i_70p]
@@ -529,7 +533,8 @@ class HummingBird(AnalogMeasurer):
 
       if ((v_sda >= self.v_70p and n_sda < self.v_70p) or
           (v_sda <= self.v_70p and n_sda > self.v_70p)):
-        sda.i_70p = i
+        interpolation = (self.v_70p - n_sda) / (v_sda - n_sda)
+        sda.i_70p = i - interpolation
         if sda.i_30p is not None:  # rising edge
           measure_field = self.add_measurement(
               measure_field, "t_rise_sda", [i, sda.i_70p - sda.i_30p]
@@ -548,7 +553,8 @@ class HummingBird(AnalogMeasurer):
             v_high_sda = []
           sda.state = None
 
-      if (scl.state == 0) and (sda.high_end == i) and self.data_start_flag:
+      if ((scl.state == 0) and sda.high_end is not None and
+          (math.ceil(sda.high_end) == i) and self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 9)):
@@ -562,7 +568,8 @@ class HummingBird(AnalogMeasurer):
               [i, sda.high_end - scl.low_start]
           )
 
-      if (scl.state == 0) and (sda.low_end == i) and self.data_start_flag:
+      if ((scl.state == 0) and sda.low_end is not None and
+          (math.ceil(sda.low_end) == i) and self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 9)):
@@ -576,7 +583,8 @@ class HummingBird(AnalogMeasurer):
               [i, sda.low_end - scl.low_start]
           )
 
-      if ((sda.state == 0) and (scl.low_end == i) and
+      if ((sda.state == 0) and scl.low_end is not None and
+          (math.ceil(scl.low_end) == i) and
           ((scl.low_start is None) or (scl.low_start < sda.low_start)) and
           self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 8) or
@@ -591,7 +599,8 @@ class HummingBird(AnalogMeasurer):
               measure_field, "t_SU_DAT_falling_host",
               [i, scl.low_end - sda.low_start]
           )
-      if ((sda.state == 1) and (scl.low_end == i) and
+      if ((sda.state == 1) and scl.low_end is not None and
+          (math.ceil(scl.low_end) == i) and
           ((scl.low_start is None) or (scl.low_start < sda.high_start)) and
           self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 8) or
@@ -607,7 +616,8 @@ class HummingBird(AnalogMeasurer):
               [i, scl.low_end - sda.high_start]
           )
 
-      if (scl.state == 1) and (sda.high_end == i):
+      if ((scl.state == 1) and sda.high_end is not None and
+          (math.ceil(sda.high_end) == i)):
         if not self.stop_flag:  # Sr
           self.restart_flag = 1
           self.first_packet = 1
@@ -628,7 +638,8 @@ class HummingBird(AnalogMeasurer):
                 measure_field, "t_BUF", [i, sda.high_end-sda.high_start]
             )
 
-      if ((sda.state == 0) and (scl.high_end == i) and
+      if ((sda.state == 0) and scl.high_end is not None and
+          (math.ceil(scl.high_end) == i) and
           ((scl.high_start is None) or (scl.high_start < sda.low_start))):
         if self.restart_flag:
           measure_field = self.add_measurement(
@@ -639,7 +650,8 @@ class HummingBird(AnalogMeasurer):
               measure_field, "t_HD_STA_S", [i, scl.high_end - sda.low_start]
           )
 
-      if ((scl.state == 1) and (sda.low_end == i) and
+      if ((scl.state == 1) and sda.low_end is not None and
+          (math.ceil(sda.low_end) == i) and
           scl.high_start is not None):
         self.stop_flag = 1
         read_flag = 0
