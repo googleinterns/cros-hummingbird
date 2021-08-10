@@ -366,7 +366,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;{report_path}"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
         f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
         f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
         "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
