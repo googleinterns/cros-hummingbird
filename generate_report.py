@@ -40,28 +40,32 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   if field == "scl_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left'>SCL capture</div>"
-        "<div class='column_right'>"
+        f"<div id='{field}'><div class='column_left margin'>SCL capture</div>"
+        "<div class='column_right margin'>"
         f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   elif field == "sda_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left'>SDA capture</div>"
-        "<div class='column_right'>"
+        f"<div id='{field}'><div class='column_left margin'>SDA capture</div>"
+        "<div class='column_right margin'>"
         f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   else:
+    svgfile += f"<div id='{field}_hide' class='hide'>"
     if "sda" in field:
       svgfile += (
-          f"<div id='{field}_hide' class='hide'>"
-          "<div class='column_left'>SDA capture</div><div class='column_right'>"
+          "<div class='column_left margin'>SDA capture</div>"
+          "<div class='column_right margin'>"
       )
-
+    elif "SU" not in field and "HD" not in field and "BUF" not in field:
+      svgfile += (
+          "<div class='column_left margin'>SCL capture</div>"
+          "<div class='column_right margin'>"
+      )
     else:
       svgfile += (
-          f"<div id='{field}_hide' class='hide'>"
           "<div class='column_left'>SCL capture</div><div class='column_right'>"
       )
     svgfile += (
@@ -101,7 +105,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
-    else:
+    elif not ("BUF" in field and "scl" in field):
       svgfile += (
           f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
           f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
@@ -113,7 +117,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   for i in range(0, len(data), rate):
     points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
   svgfile += (
-      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:7;'/>"
+      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:6;'/>"
       "</svg></div></div>"
   )
 
@@ -169,7 +173,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
     report.write("<title>HummingBird Output Report</title><style>")
     style = """body {
-      padding: 1% 3%;
+      padding: 1% 3% 4% 3%;
       font-family: arial, sans-serif;
       font-size: 18px;
     }
@@ -213,6 +217,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       background-color: #f5f5f5;
       cursor: pointer;
     }
+    svg {
+      height: 100%;
+      width: 100%;
+    }
     div {
       margin: 1% auto;
       width: 100%;
@@ -231,14 +239,13 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       padding: 30px 0;
       text-align: center;
       font-weight: 600;
-      margin-bottom: 50px;
       font-size: 21px;
     }
     .column_right{
       float: left;
       width:90%;
       padding: 0;
-      margin-bottom: 50px;
+      margin-bottom: 0px;
     }
     .summary {
       margin: 0 0 20px 10px;
@@ -272,6 +279,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       padding-top: 10px;
       color: #882132;
       font-size: 19px;
+    }
+    .margin {
+      margin-bottom: 5%;
     }"""
 
     script = """<script>
@@ -356,7 +366,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;{report_path}"
         f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
         f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
         "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
