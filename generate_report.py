@@ -318,9 +318,6 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write("</style></head><body>")
     report.write(script)
 
-    if mode is None:
-      mode = "Unknown ( Note: SCL data has not been specified... )"
-
     report.write(
         "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'><p>"
         "<b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
@@ -333,11 +330,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
     )
-    if mode != "Unknown ( Note: SCL data has not been specified... )":
-      if not fails:
-        report.write("<p>Pass SPEC test successfully! :)</p>")
-      else:
-        report.write("<p><b>Fail:</b>&nbsp;&nbsp;" + fails + "</p>")
+    if not fails:
+      report.write("<p>Pass SPEC test successfully! :)</p>")
+    else:
+      report.write("<p><b>Fail:</b>&nbsp;&nbsp;" + fails + "</p>")
     report.write("<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;")
     report.write(" ".join(addr))
     report.write(
