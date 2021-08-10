@@ -4,6 +4,7 @@ The file contain methods related to output report.
 
 """
 import datetime
+import math
 import os
 import typing
 
@@ -69,11 +70,42 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
     # Red Rect to Mark the Measure Area
 
+    xx1 = rect_idx - rect_width
+    yy1 = ((xx1 - math.floor(xx1)) *
+           (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
+           data[math.floor(xx1)])
+    yy1 = (data_max - int(yy1 * 50)) * 2 + 40
+    xx1 = xx1 // rate * 5
+
+    xx2 = rect_idx
+    yy2 = ((xx2 - math.floor(xx2)) *
+           (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
+           data[math.floor(xx2)])
+    yy2 = (data_max - int(yy2 * 50)) * 2 + 40
+    xx2 = xx2 // rate * 5
+
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
         f"<rect x={rect_x} y='0' width={rect_width} height='100%' fill='red' opacity='0.3'/>"
     )
+    if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
+        ("HD_STA" in field and "sda" in field)):
+      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+    elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
+          ("HD_STA" in field and "scl" in field)):
+      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+    elif (("SU" in field and "sda" in field) or
+          ("HD" in field and "scl" in field)):
+      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+    elif (("SU" in field and "scl" in field) or
+          ("HD" in field and "sda" in field)):
+      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+    else:
+      svgfile += (
+          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+      )
 
   # Data Polyline
 
@@ -81,7 +113,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   for i in range(0, len(data), rate):
     points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
   svgfile += (
-      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:5;'/>"
+      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:7;'/>"
       "</svg></div></div>"
   )
 
@@ -324,7 +356,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;{report_path}"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
         f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
         f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
         "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
