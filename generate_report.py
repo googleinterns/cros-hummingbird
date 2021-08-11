@@ -322,7 +322,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       elems.forEach(function(itm, idx, arr) {
           itm.style.display = "inline";
       })
-      if (elems.length!=0){
+      if (elems.length != 0){
           ele_self.style.background = "#F5B7B1";
       }
       let fields = [
@@ -337,7 +337,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       fields.forEach(function(item, index, array) {
           if (item != x){
             ele1 = document.getElementById(item);
-            if(ele1!=null){ele1.style.background = "white";}
+            if(ele1 != null){ele1.style.background = "white";}
             selector1 = `#${item}_hide, #${item}_scl_hide, #${item}_sda_hide, `;
             selector2 = `#${item}_rect, #${item}_scl_rect, #${item}_sda_rect, #${item}_line, #${item}_poly`;
             elems = document.querySelectorAll(selector1 + selector2);
@@ -563,10 +563,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       report.write("</tr>")
 
     report.write(
-        "</table><div><b>[1]</b> (V<sub>H</sub>-0.7V<sub>DD</sub>) / "
-        "V<sub>DD</sub>&nbsp;&nbsp;<b>[2]</b> (0.3V<sub>DD</sub>-V<sub>L</sub>) "
-        "/ V<sub>DD</sub></div><div><b>[3]</b> t<sub>VD;DAT</sub> and t"
-        "<sub>VD;ACK</sub> are included in t<sub>HD;DAT</sub></div>"
+        "</table><div><b>[1]</b> (V<sub>H</sub>-0.7V<sub>DD</sub>) / V<sub>DD</sub></div>"
+        "<div><b>[2]</b> (0.3V<sub>DD</sub>-V<sub>L</sub>) / V<sub>DD</sub></div>"
+        "<div><b>[3]</b> t<sub>VD;DAT</sub> and t<sub>VD;ACK</sub> are included in t<sub>HD;DAT</sub></div>"
     )
 
     for plot in svg_fields.values():
