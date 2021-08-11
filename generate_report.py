@@ -42,14 +42,14 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     svgfile += (
         f"<div id='{field}'><div class='column_left'>SCL capture</div>"
         "<div class='column_right'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}' style='height={height + 120};width=auto'>"
+        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
     )
 
   elif field == "sda_show":
     svgfile += (
         f"<div id='{field}'><div class='column_left margin'>SDA capture</div>"
         "<div class='column_right margin'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}' style='height={height + 120};width=auto'>"
+        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
     )
 
   else:
@@ -69,10 +69,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           "<div class='column_left'>SCL<br>zoom in</div>"
           "<div class='column_right'>"
       )
-    svgfile += (
-        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'"
-        f" style='height={height + 120};width=auto'>"
-    )
+    svgfile += f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
 
     # Red Rect to Mark the Measure Area
 
@@ -93,39 +90,32 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
-        f"<rect x={rect_x} y='0' "
-        f"style='width:{rect_width};height:100%;fill:red;opacity:0.3;'/>"
+        f"<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
     )
     if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
         ("HD_STA" in field and "sda" in field)):
       svgfile += (
-          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
-          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
-          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
-          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
       svgfile += (
-          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
-          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
-          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
-          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
-          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
-          " style='stroke:black;stroke-width:5;'/>"
-          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
-          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
 
   # Data Polyline
@@ -133,9 +123,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   points = ""
   for i in range(0, len(data), rate):
     points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 160} "
-  svgfile += (
-      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:6;'/>"
-  )
+  svgfile += f"<polyline points='{points}' class='plotline'/>"
   if field != "scl_show" and field != "sda_show":
     svgfile += "</svg></div></div>"
 
@@ -300,16 +288,43 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .margin {
       margin-bottom: 5%;
+    }
+    .rect {
+      fill: red;
+      opacity: 0.3;
+    }
+    .line {
+      stroke: black;
+      stroke-width: 5;
+    }
+    .plotline {
+      fill: none;
+      stroke: black;
+      stroke-width: 6;
+    }
+    .arrowline {
+      stroke: #555;
+      stroke-width: 50;
+      display: none;
+    }
+    .arrow {
+      fill: #555;
+      display: none;
     }"""
 
     script = """<script>
     function ShowSVG(x){
       console.log(x);
       ele_self = document.getElementById(x);
-      ele_self.style.background = "#F5B7B1";
-      ele = document.getElementById(x + "_hide");
-      ele_scl = document.getElementById(x + "_scl_hide");
-      ele_sda = document.getElementById(x + "_sda_hide");
+      selector1 = `#${x}_hide, #${x}_scl_hide, #${x}_sda_hide, `;
+      selector2 = `#${x}_rect, #${x}_scl_rect, #${x}_sda_rect, #${x}_line, #${x}_poly`;
+      elems = document.querySelectorAll(selector1 + selector2);
+      elems.forEach(function(itm, idx, arr) {
+          itm.style.display = "inline";
+      })
+      if (elems.length!=0){
+          ele_self.style.background = "#F5B7B1";
+      }
       let fields = [
           "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
           "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
@@ -319,110 +334,19 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
           "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
           "t_SU_STA", "t_SU_STO", "t_BUF"
       ];
-      if(ele != null){
-        ele.style.display = "block";
-        rect = document.getElementById(x + "_rect");
-        if(rect!=null){rect.style.display = "inline";}
-        line = document.getElementById(x + "_line");
-        if(line!=null){line.style.display = "inline";}
-        poly = document.getElementById(x + "_poly");
-        if(poly!=null){poly.style.display = "inline";}
-        fields.forEach(function(item, index, array) {
+      fields.forEach(function(item, index, array) {
           if (item != x){
             ele1 = document.getElementById(item);
             if(ele1!=null){ele1.style.background = "white";}
-            ele2 = document.getElementById(item + "_hide");
-            if(ele2!=null){
-              ele2.style.display = "none";
-              rect2 = document.getElementById(item + "_rect");
-              if(rect2!=null){rect2.style.display = "none";}
-            }
-            ele3 = document.getElementById(item + "_scl_hide");
-            if(ele3!=null){
-              ele3.style.display = "none";
-              rect3 = document.getElementById(item + "_scl_rect");
-              if(rect3!=null){rect3.style.display = "none";}
-            }
-            ele4 = document.getElementById(item + "_sda_hide");
-            if(ele4!=null){
-              ele4.style.display = "none";
-              rect4 = document.getElementById(item + "_sda_rect");
-              if(rect4!=null){rect4.style.display = "none";}
-            }
-            line2 = document.getElementById(item + "_line");
-            if(line2!=null){line2.style.display = "none";}
-            poly2 = document.getElementById(item + "_poly");
-            if(poly2!=null){poly2.style.display = "none";}
+            selector1 = `#${item}_hide, #${item}_scl_hide, #${item}_sda_hide, `;
+            selector2 = `#${item}_rect, #${item}_scl_rect, #${item}_sda_rect, #${item}_line, #${item}_poly`;
+            elems = document.querySelectorAll(selector1 + selector2);
+            elems.forEach(function(itm, idx, arr) {
+                itm.style.display = "none";
+            })
           }
-        })
-      }else if(ele_scl!=null && ele_sda!=null) {
-        ele_scl.style.display = "block";
-        ele_sda.style.display = "block";
-        rect1 = document.getElementById(x + "_scl_rect");
-        if(rect1!=null){rect1.style.display = "inline";}
-        rect2 = document.getElementById(x + "_sda_rect");
-        if(rect2!=null){rect2.style.display = "inline";}
-        line = document.getElementById(x + "_line");
-        if(line!=null){line.style.display = "inline";}
-        poly = document.getElementById(x + "_poly");
-        if(poly!=null){poly.style.display = "inline";}
-        fields.forEach(function(item, index, array) {
-          if (item != x){
-            ele1 = document.getElementById(item);
-            if(ele1!=null){ele1.style.background = "white";}
-            ele2 = document.getElementById(item + "_hide");
-            if(ele2!=null){
-              ele2.style.display = "none";
-              rect2 = document.getElementById(item + "_rect");
-              if(rect2!=null){rect2.style.display = "none";}
-            }
-            ele3 = document.getElementById(item + "_scl_hide");
-            if(ele3!=null){
-              ele3.style.display = "none";
-              rect3 = document.getElementById(item + "_scl_rect");
-              if(rect3!=null){rect3.style.display = "none";}
-            }
-            ele4 = document.getElementById(item + "_sda_hide");
-            if(ele4!=null){
-              ele4.style.display = "none";
-              rect4 = document.getElementById(item + "_sda_rect");
-              if(rect4!=null){rect4.style.display = "none";}
-            }
-            line2 = document.getElementById(item + "_line");
-            if(line2!=null){line2.style.display = "none";}
-            poly2 = document.getElementById(item + "_poly");
-            if(poly2!=null){poly2.style.display = "none";}
-          }
-        })
-      }else{
-        fields.forEach(function(item, index, array) {
-          ele1 = document.getElementById(item);
-          if(ele1!=null){ele1.style.background = "white";}
-          ele2 = document.getElementById(item + "_hide");
-          if(ele2!=null){
-            ele2.style.display = "none";
-            rect2 = document.getElementById(item + "_rect");
-            if(rect2!=null){rect2.style.display = "none";}
-          }
-          ele3 = document.getElementById(item + "_scl_hide");
-          if(ele3!=null){
-            ele3.style.display = "none";
-            rect3 = document.getElementById(item + "_scl_rect");
-            if(rect3!=null){rect3.style.display = "none";}
-          }
-          ele4 = document.getElementById(item + "_sda_hide");
-          if(ele4!=null){
-            ele4.style.display = "none";
-            rect4 = document.getElementById(item + "_sda_rect");
-            if(rect4!=null){rect4.style.display = "none";}
-          }
-          line2 = document.getElementById(item + "_line");
-          if(line2!=null){line2.style.display = "none";}
-          poly2 = document.getElementById(item + "_poly");
-          if(poly2!=null){poly2.style.display = "none";}
-        })
-      }
-    }
+       })
+     }
     </script>"""
     report.write(style)
     report.write("</style></head><body>")
