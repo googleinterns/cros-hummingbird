@@ -40,36 +40,38 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   if field == "scl_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left margin'>SCL capture</div>"
-        "<div class='column_right margin'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
+        f"<div id='{field}'><div class='column_left'>SCL capture</div>"
+        "<div class='column_right'>"
+        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}' style='height={height + 120};width=auto'>"
     )
 
   elif field == "sda_show":
     svgfile += (
         f"<div id='{field}'><div class='column_left margin'>SDA capture</div>"
         "<div class='column_right margin'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
+        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}' style='height={height + 120};width=auto'>"
     )
 
   else:
     svgfile += f"<div id='{field}_hide' class='hide'>"
     if "sda" in field:
       svgfile += (
-          "<div class='column_left margin'>SDA capture</div>"
+          "<div class='column_left margin'>SDA<br>zoom in</div>"
           "<div class='column_right margin'>"
       )
     elif "SU" not in field and "HD" not in field and "BUF" not in field:
       svgfile += (
-          "<div class='column_left margin'>SCL capture</div>"
+          "<div class='column_left margin'>SCL<br>zoom in</div>"
           "<div class='column_right margin'>"
       )
     else:
       svgfile += (
-          "<div class='column_left'>SCL capture</div><div class='column_right'>"
+          "<div class='column_left'>SCL<br>zoom in</div>"
+          "<div class='column_right'>"
       )
     svgfile += (
-        f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
+        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'"
+        f" style='height={height + 120};width=auto'>"
     )
 
     # Red Rect to Mark the Measure Area
@@ -78,48 +80,64 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy1 = ((xx1 - math.floor(xx1)) *
            (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
            data[math.floor(xx1)])
-    yy1 = (data_max - int(yy1 * 50)) * 2 + 40
+    yy1 = (data_max - int(yy1 * 50)) * 2 + 160
     xx1 = xx1 // rate * 5
 
     xx2 = rect_idx
     yy2 = ((xx2 - math.floor(xx2)) *
            (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
            data[math.floor(xx2)])
-    yy2 = (data_max - int(yy2 * 50)) * 2 + 40
+    yy2 = (data_max - int(yy2 * 50)) * 2 + 160
     xx2 = xx2 // rate * 5
 
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
-        f"<rect x={rect_x} y='0' width={rect_width} height='100%' fill='red' opacity='0.3'/>"
+        f"<rect x={rect_x} y='0' "
+        f"style='width:{rect_width};height:100%;fill:red;opacity:0.3;'/>"
     )
     if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
         ("HD_STA" in field and "sda" in field)):
-      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+      svgfile += (
+          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
+          " style='stroke:black;stroke-width:5;'/>"
+      )
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
-      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+      svgfile += (
+          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
+          " style='stroke:black;stroke-width:5;'/>"
+      )
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
-      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+      svgfile += (
+          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
+          " style='stroke:black;stroke-width:5;'/>"
+      )
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
-      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+      svgfile += (
+          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
+          " style='stroke:black;stroke-width:5;'/>"
+      )
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
-          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
-          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1}"
+          " style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2}"
+          " style='stroke:black;stroke-width:5;'/>"
       )
 
   # Data Polyline
 
   points = ""
   for i in range(0, len(data), rate):
-    points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
+    points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 160} "
   svgfile += (
       f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:6;'/>"
-      "</svg></div></div>"
   )
+  if field != "scl_show" and field != "sda_show":
+    svgfile += "</svg></div></div>"
 
   return svgfile
 
@@ -241,7 +259,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       font-weight: 600;
       font-size: 21px;
     }
-    .column_right{
+    .column_right {
       float: left;
       width:90%;
       padding: 0;
@@ -303,55 +321,105 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       ];
       if(ele != null){
         ele.style.display = "block";
-        sda = document.getElementById('sda_show');
-        if(sda!=null){sda.style.display = "none";}
-         scl = document.getElementById('scl_show');
-        if(scl!=null){scl.style.display = "none";}
+        rect = document.getElementById(x + "_rect");
+        if(rect!=null){rect.style.display = "inline";}
+        line = document.getElementById(x + "_line");
+        if(line!=null){line.style.display = "inline";}
+        poly = document.getElementById(x + "_poly");
+        if(poly!=null){poly.style.display = "inline";}
         fields.forEach(function(item, index, array) {
           if (item != x){
             ele1 = document.getElementById(item);
             if(ele1!=null){ele1.style.background = "white";}
             ele2 = document.getElementById(item + "_hide");
-            if(ele2!=null){ele2.style.display = "none";}
+            if(ele2!=null){
+              ele2.style.display = "none";
+              rect2 = document.getElementById(item + "_rect");
+              if(rect2!=null){rect2.style.display = "none";}
+            }
             ele3 = document.getElementById(item + "_scl_hide");
-            if(ele3!=null){ele3.style.display = "none";}
+            if(ele3!=null){
+              ele3.style.display = "none";
+              rect3 = document.getElementById(item + "_scl_rect");
+              if(rect3!=null){rect3.style.display = "none";}
+            }
             ele4 = document.getElementById(item + "_sda_hide");
-            if(ele4!=null){ele4.style.display = "none";}
+            if(ele4!=null){
+              ele4.style.display = "none";
+              rect4 = document.getElementById(item + "_sda_rect");
+              if(rect4!=null){rect4.style.display = "none";}
+            }
+            line2 = document.getElementById(item + "_line");
+            if(line2!=null){line2.style.display = "none";}
+            poly2 = document.getElementById(item + "_poly");
+            if(poly2!=null){poly2.style.display = "none";}
           }
         })
       }else if(ele_scl!=null && ele_sda!=null) {
         ele_scl.style.display = "block";
         ele_sda.style.display = "block";
-        sda = document.getElementById('sda_show');
-        if(sda!=null){sda.style.display = "none";}
-         scl = document.getElementById('scl_show');
-        if(scl!=null){scl.style.display = "none";}
+        rect1 = document.getElementById(x + "_scl_rect");
+        if(rect1!=null){rect1.style.display = "inline";}
+        rect2 = document.getElementById(x + "_sda_rect");
+        if(rect2!=null){rect2.style.display = "inline";}
+        line = document.getElementById(x + "_line");
+        if(line!=null){line.style.display = "inline";}
+        poly = document.getElementById(x + "_poly");
+        if(poly!=null){poly.style.display = "inline";}
         fields.forEach(function(item, index, array) {
           if (item != x){
             ele1 = document.getElementById(item);
             if(ele1!=null){ele1.style.background = "white";}
             ele2 = document.getElementById(item + "_hide");
-            if(ele2!=null){ele2.style.display = "none";}
+            if(ele2!=null){
+              ele2.style.display = "none";
+              rect2 = document.getElementById(item + "_rect");
+              if(rect2!=null){rect2.style.display = "none";}
+            }
             ele3 = document.getElementById(item + "_scl_hide");
-            if(ele3!=null){ele3.style.display = "none";}
+            if(ele3!=null){
+              ele3.style.display = "none";
+              rect3 = document.getElementById(item + "_scl_rect");
+              if(rect3!=null){rect3.style.display = "none";}
+            }
             ele4 = document.getElementById(item + "_sda_hide");
-            if(ele4!=null){ele4.style.display = "none";}
+            if(ele4!=null){
+              ele4.style.display = "none";
+              rect4 = document.getElementById(item + "_sda_rect");
+              if(rect4!=null){rect4.style.display = "none";}
+            }
+            line2 = document.getElementById(item + "_line");
+            if(line2!=null){line2.style.display = "none";}
+            poly2 = document.getElementById(item + "_poly");
+            if(poly2!=null){poly2.style.display = "none";}
           }
         })
       }else{
-        sda = document.getElementById('sda_show');
-        if(sda!=null){sda.style.display = "block";}
-        scl = document.getElementById('scl_show');
-        if(scl!=null){scl.style.display = "block";}
         fields.forEach(function(item, index, array) {
           ele1 = document.getElementById(item);
           if(ele1!=null){ele1.style.background = "white";}
           ele2 = document.getElementById(item + "_hide");
-          if(ele2!=null){ele2.style.display = "none";}
+          if(ele2!=null){
+            ele2.style.display = "none";
+            rect2 = document.getElementById(item + "_rect");
+            if(rect2!=null){rect2.style.display = "none";}
+          }
           ele3 = document.getElementById(item + "_scl_hide");
-          if(ele3!=null){ele3.style.display = "none";}
+          if(ele3!=null){
+            ele3.style.display = "none";
+            rect3 = document.getElementById(item + "_scl_rect");
+            if(rect3!=null){rect3.style.display = "none";}
+          }
           ele4 = document.getElementById(item + "_sda_hide");
-          if(ele4!=null){ele4.style.display = "none";}
+          if(ele4!=null){
+            ele4.style.display = "none";
+            rect4 = document.getElementById(item + "_sda_rect");
+            if(rect4!=null){rect4.style.display = "none";}
+          }
+          line2 = document.getElementById(item + "_line");
+          if(line2!=null){line2.style.display = "none";}
+          poly2 = document.getElementById(item + "_poly");
+          if(poly2!=null){poly2.style.display = "none";}
         })
       }
     }

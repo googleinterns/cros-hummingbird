@@ -934,14 +934,18 @@ class HummingBird(AnalogMeasurer):
       sda_v_min = np.min(self.sda_data)
 
     svg_fields = {}
+    svg_fields["scl"] = SVGFile(
+        self.scl_data, scl_v_max, scl_v_min, None, None, "scl_show"
+    )
+    svg_fields["sda"] = SVGFile(
+        self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show"
+    )
+    rate = min(max(len(self.scl_data) // 1000, 1), 180)
 
     fields1 = [
         "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
         "t_high", "f_clk", "v_nl_scl", "v_nh_scl"
     ]
-    svg_fields["scl"] = SVGFile(
-        self.scl_data, scl_v_max, scl_v_min, None, None, "scl_show"
-    )
     for f in fields1:
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
@@ -953,13 +957,22 @@ class HummingBird(AnalogMeasurer):
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
             idx - start_idx, svgwidth[f], f
         )
+        rect_width = max(svgwidth[f] // rate * 5, 40)
+        rect_x = idx // rate * 5 - rect_width
+        mid_x = rect_x + rect_width // 2
+        svg_fields["scl"] += (
+            f"<rect id='{f}_rect' x={rect_x} y='0'"
+            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
+            " style='stroke:#555;stroke-width:50;display:none;'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
+            " style='fill:#555;display:none;'/>"
+        )
 
     fields2 = [
         "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda", "v_nl_sda",
         "v_nh_sda"
     ]
-    svg_fields["sda"] = SVGFile(
-        self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show")
     for f in fields2:
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
@@ -970,6 +983,17 @@ class HummingBird(AnalogMeasurer):
         svg_fields[f] = SVGFile(
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f
+        )
+        rect_width = max(svgwidth[f] // rate * 5, 40)
+        rect_x = idx // rate * 5 - rect_width
+        mid_x = rect_x + rect_width // 2
+        svg_fields["sda"] += (
+            f"<rect id='{f}_rect' x={rect_x} y='0'"
+            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
+            " style='stroke:#555;stroke-width:50;display:none;'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
+            " style='fill:#555;display:none;'/>"
         )
 
     fields3 = [
@@ -994,6 +1018,23 @@ class HummingBird(AnalogMeasurer):
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f + "_sda"
         )
+        rect_width = max(svgwidth[f] // rate * 5, 40)
+        rect_x = idx // rate * 5 - rect_width
+        mid_x = rect_x + rect_width // 2
+        svg_fields["scl"] += (
+            f"<rect id='{f}_scl_rect' x={rect_x} y='0'"
+            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
+            " style='stroke:#555;stroke-width:50;display:none;'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
+            " style='fill:#555;display:none;'/>"
+        )
+        svg_fields["sda"] += (
+            f"<rect id='{f}_sda_rect' x={rect_x} y='0'"
+            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
+        )
+    svg_fields["scl"] += "</svg></div></div>"
+    svg_fields["sda"] += "</svg></div></div>"
 
     return svg_fields
 
