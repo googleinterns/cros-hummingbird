@@ -961,12 +961,9 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
-            f"<rect id='{f}_rect' x={rect_x} y='0'"
-            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
-            " style='stroke:#555;stroke-width:50;display:none;'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
-            " style='fill:#555;display:none;'/>"
+            f"<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
 
     fields2 = [
@@ -988,12 +985,9 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["sda"] += (
-            f"<rect id='{f}_rect' x={rect_x} y='0'"
-            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
-            " style='stroke:#555;stroke-width:50;display:none;'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
-            " style='fill:#555;display:none;'/>"
+            f"<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
 
     fields3 = [
@@ -1022,16 +1016,13 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
-            f"<rect id='{f}_scl_rect' x={rect_x} y='0'"
-            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60"
-            " style='stroke:#555;stroke-width:50;display:none;'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50'"
-            " style='fill:#555;display:none;'/>"
+            f"<rect id='{f}_scl_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
         svg_fields["sda"] += (
-            f"<rect id='{f}_sda_rect' x={rect_x} y='0'"
-            f" style='width:{rect_width};height:100%;fill:red;opacity:0.3;display:none;'/>"
+            f"<rect id='{f}_sda_rect' x={rect_x} y='0' width={rect_width} height=100%"
+            f" class='rect hide''/>"
         )
     svg_fields["scl"] += "</svg></div></div>"
     svg_fields["sda"] += "</svg></div></div>"
