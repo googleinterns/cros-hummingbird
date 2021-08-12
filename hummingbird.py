@@ -182,9 +182,37 @@ class HummingBird(AnalogMeasurer):
     if self.start_time is None:
       self.start_time = data.start_time
 
+  def max_of_filtered_arr(self, data, threshold=1):
+    """Remove glitch from data segment.
+
+    Perform De-glitch per 0.1us segment.
+    Remove voltage difference between two sample points larger
+    than 1V.
+
+    Args:
+      data: raw voltage data
+      threshold: difference larger than threshold would be removed
+                 (default: 1V)
+
+    Returns:
+      maxx: the maxium voltage of the filtered data
+    """
+    data = np.array(data.copy())
+    length = round(1e-7 / self.sampling_period)
+    segments = len(data) // length
+    for i in range(segments):
+      arr = data[i*length:(i+1)*length]
+      difference = np.abs(arr - np.median(arr))
+      mask = difference > threshold
+      arr[mask] = np.median(arr)
+      data[i*length:(i+1)*length] = arr
+    maxx = np.max(data)
+    return maxx
+
   def determine_working_voltage(self, data):
     """Determine Working Voltage.
 
+    Perform de-glitch on data
     Using the maximum voltage value to predict the working voltage.
 
     Args:
@@ -193,7 +221,7 @@ class HummingBird(AnalogMeasurer):
     Returns:
       vs: working voltage
     """
-    v_max = np.max(data)
+    v_max = self.max_of_filtered_arr(data)
 
     vs_list = [1.2, 1.8, 3.3, 5]
     pos = np.argmax(vs_list > v_max)
@@ -1022,7 +1050,7 @@ class HummingBird(AnalogMeasurer):
         )
         svg_fields["sda"] += (
             f"<rect id='{f}_sda_rect' x={rect_x} y='0' width={rect_width} height=100%"
-            f" class='rect hide''/>"
+            f" class='rect hide'/>"
         )
     svg_fields["scl"] += "</svg></div></div>"
     svg_fields["sda"] += "</svg></div></div>"
