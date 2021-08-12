@@ -73,7 +73,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
     # Red Rect to Mark the Measure Area
 
-    xx1 = rect_idx - rect_width
+    xx1 = max(rect_idx - rect_width, 0)
     yy1 = ((xx1 - math.floor(xx1)) *
            (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
            data[math.floor(xx1)])
@@ -358,7 +358,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;&nbsp;&nbsp;{report_path}"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
         f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
         f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
         "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
