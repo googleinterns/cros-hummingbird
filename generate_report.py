@@ -4,6 +4,7 @@ The file contain methods related to output report.
 
 """
 import datetime
+import math
 import os
 import typing
 
@@ -39,28 +40,32 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   if field == "scl_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left'>SCL capture</div>"
-        "<div class='column_right'>"
+        f"<div id='{field}'><div class='column_left margin'>SCL capture</div>"
+        "<div class='column_right margin'>"
         f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   elif field == "sda_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left'>SDA capture</div>"
-        "<div class='column_right'>"
+        f"<div id='{field}'><div class='column_left margin'>SDA capture</div>"
+        "<div class='column_right margin'>"
         f"<svg viewBox='0 0 {width} {height * 1.2}' height={height * 0.7} width=auto>"
     )
 
   else:
+    svgfile += f"<div id='{field}_hide' class='hide'>"
     if "sda" in field:
       svgfile += (
-          f"<div id='{field}_hide' class='hide'>"
-          "<div class='column_left'>SDA capture</div><div class='column_right'>"
+          "<div class='column_left margin'>SDA capture</div>"
+          "<div class='column_right margin'>"
       )
-
+    elif "SU" not in field and "HD" not in field and "BUF" not in field:
+      svgfile += (
+          "<div class='column_left margin'>SCL capture</div>"
+          "<div class='column_right margin'>"
+      )
     else:
       svgfile += (
-          f"<div id='{field}_hide' class='hide'>"
           "<div class='column_left'>SCL capture</div><div class='column_right'>"
       )
     svgfile += (
@@ -69,11 +74,42 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
     # Red Rect to Mark the Measure Area
 
+    xx1 = rect_idx - rect_width
+    yy1 = ((xx1 - math.floor(xx1)) *
+           (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
+           data[math.floor(xx1)])
+    yy1 = (data_max - int(yy1 * 50)) * 2 + 40
+    xx1 = xx1 // rate * 5
+
+    xx2 = rect_idx
+    yy2 = ((xx2 - math.floor(xx2)) *
+           (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
+           data[math.floor(xx2)])
+    yy2 = (data_max - int(yy2 * 50)) * 2 + 40
+    xx2 = xx2 // rate * 5
+
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
         f"<rect x={rect_x} y='0' width={rect_width} height='100%' fill='red' opacity='0.3'/>"
     )
+    if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
+        ("HD_STA" in field and "sda" in field)):
+      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+    elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
+          ("HD_STA" in field and "scl" in field)):
+      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+    elif (("SU" in field and "sda" in field) or
+          ("HD" in field and "scl" in field)):
+      svgfile += f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+    elif (("SU" in field and "scl" in field) or
+          ("HD" in field and "sda" in field)):
+      svgfile += f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+    elif not ("BUF" in field and "scl" in field):
+      svgfile += (
+          f"<line x1={xx1-20} y1={yy1} x2={xx1+20} y2={yy1} style='stroke:black;stroke-width:5;'/>"
+          f"<line x1={xx2-20} y1={yy2} x2={xx2+20} y2={yy2} style='stroke:black;stroke-width:5;'/>"
+      )
 
   # Data Polyline
 
@@ -81,7 +117,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   for i in range(0, len(data), rate):
     points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 40} "
   svgfile += (
-      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:5;'/>"
+      f"<polyline points='{points}' style='fill:none;stroke:black;stroke-width:6;'/>"
       "</svg></div></div>"
   )
 
@@ -137,7 +173,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
     report.write("<title>HummingBird Output Report</title><style>")
     style = """body {
-      padding: 1% 3%;
+      padding: 1% 3% 4% 3%;
       font-family: arial, sans-serif;
       font-size: 18px;
     }
@@ -181,6 +217,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       background-color: #f5f5f5;
       cursor: pointer;
     }
+    svg {
+      height: 100%;
+      width: 100%;
+    }
     div {
       margin: 1% auto;
       width: 100%;
@@ -199,14 +239,13 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       padding: 30px 0;
       text-align: center;
       font-weight: 600;
-      margin-bottom: 50px;
       font-size: 21px;
     }
     .column_right{
       float: left;
       width:90%;
       padding: 0;
-      margin-bottom: 50px;
+      margin-bottom: 0px;
     }
     .summary {
       margin: 0 0 20px 10px;
@@ -240,6 +279,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       padding-top: 10px;
       color: #882132;
       font-size: 19px;
+    }
+    .margin {
+      margin-bottom: 5%;
     }"""
 
     script = """<script>
