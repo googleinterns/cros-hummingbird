@@ -186,7 +186,8 @@ class HummingBird(AnalogMeasurer):
   def determine_working_voltage(self, data):
     """Determine Working Voltage.
 
-    Using the maximum voltage value to predict the working voltage.
+    Perform de-glitch on data and using the maximum 
+    voltage value to predict the working voltage.
 
     Args:
       data: numpy array of voltages values
@@ -196,7 +197,7 @@ class HummingBird(AnalogMeasurer):
     """
     v_max = np.max(data)
 
-    vs_list = [1.2, 1.8, 3.3, 5]
+    vs_list = [1.8, 3.3, 5]
     pos = np.argmax(vs_list > v_max)
     if pos:
       if vs_list[pos] - v_max <= v_max - vs_list[pos - 1]:
