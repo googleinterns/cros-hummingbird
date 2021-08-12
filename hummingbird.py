@@ -914,7 +914,7 @@ class HummingBird(AnalogMeasurer):
 
     return values, result, svgwidth
 
-  def get_svg_fields(self, result, svgwidth):
+  def get_svg_fields(self, result, svgwidth, vs):
     """Save SVG Data for Each parameter.
 
     Calculate Max/Min Value for Plot Boundary
@@ -923,6 +923,7 @@ class HummingBird(AnalogMeasurer):
     Args:
       result: get start idx of worst waveform
       svgwidth: get width of worst waveform
+      vs: working voltage, for 30p and 70p marker on plot
 
     Returns:
       svg_fields: svg plots to draw on html report
@@ -936,10 +937,10 @@ class HummingBird(AnalogMeasurer):
 
     svg_fields = {}
     svg_fields["scl"] = SVGFile(
-        self.scl_data, scl_v_max, scl_v_min, None, None, "scl_show"
+        self.scl_data, scl_v_max, scl_v_min, None, None, "scl_show", vs
     )
     svg_fields["sda"] = SVGFile(
-        self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show"
+        self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show", vs
     )
     rate = min(max(len(self.scl_data) // 1000, 1), 180)
 
@@ -956,7 +957,7 @@ class HummingBird(AnalogMeasurer):
         end_idx = math.ceil(min(len(self.scl_data), max(idx + 1000, 2000)))
         svg_fields[f] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
-            idx - start_idx, svgwidth[f], f
+            idx - start_idx, svgwidth[f], f, vs
         )
         rect_width = max(svgwidth[f] // rate * 5, 40)
         rect_x = idx // rate * 5 - rect_width
@@ -980,7 +981,7 @@ class HummingBird(AnalogMeasurer):
         end_idx = math.ceil(min(len(self.sda_data), max(idx + 1000, 2000)))
         svg_fields[f] = SVGFile(
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
-            idx - start_idx, svgwidth[f], f
+            idx - start_idx, svgwidth[f], f, vs
         )
         rect_width = max(svgwidth[f] // rate * 5, 40)
         rect_x = idx // rate * 5 - rect_width
@@ -1007,11 +1008,11 @@ class HummingBird(AnalogMeasurer):
         end_idx = math.ceil(min(len(self.scl_data), max(idx + 1000, 2000)))
         svg_fields[f + "_scl"] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
-            idx - start_idx, svgwidth[f], f + "_scl"
+            idx - start_idx, svgwidth[f], f + "_scl", vs
         )
         svg_fields[f + "_sda"] = SVGFile(
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
-            idx - start_idx, svgwidth[f], f + "_sda"
+            idx - start_idx, svgwidth[f], f + "_sda", vs
         )
         rect_width = max(svgwidth[f] // rate * 5, 40)
         rect_x = idx // rate * 5 - rect_width
@@ -1091,7 +1092,7 @@ class HummingBird(AnalogMeasurer):
     uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
 
     sampling_rate = round(1 / self.sampling_period * 1e-6)
-    svg_fields = self.get_svg_fields(result, svgwidth)
+    svg_fields = self.get_svg_fields(result, svgwidth, vs)
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate)

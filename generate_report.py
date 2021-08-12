@@ -17,7 +17,7 @@ if not os.path.exists(LOCAL_PATH):
 
 
 def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
-            rect_idx: int, rect_width: int, field: str):
+            rect_idx: int, rect_width: int, field: str, vs: float):
   """Generate SVG plot.
 
   Args:
@@ -27,6 +27,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     rect_idx:  index where the worst pattern occurs
     rect_width:  the index width where the worst pattern last
     field:  the SPEC field of this SVG plot
+    vs: working voltage, for 30p and 70p marker on plot
 
   Returns:
     SVG plot to write in the html report.
@@ -87,6 +88,9 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy2 = (data_max - int(yy2 * 50)) * 2 + 160
     xx2 = xx2 // rate * 5
 
+    y30p = (data_max - int(vs * 0.3 * 50)) * 2 + 160
+    y70p = (data_max - int(vs * 0.7 * 50)) * 2 + 160
+
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
@@ -97,26 +101,50 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
 
   # Data Polyline
 
@@ -311,6 +339,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     .arrow {
       fill: #555;
       display: none;
+    }
+    .text {
+      fill: black;
+      font-size: 50px;
     }"""
 
     script = """<script>
