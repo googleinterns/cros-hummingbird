@@ -135,7 +135,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      result: typing.Dict[str, np.float64],
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
-                     addr: typing.List[str]):
+                     addr: typing.List[str], sampling_rate: int):
   """Write HTML report.
 
   Args:
@@ -150,6 +150,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     num_pass:  number of passed SPEC fields
     svg_fields:  SVG plot dictionary for each SPEC field
     addr:  addresses included in the capture
+    sampling_rate: sampling rate of the analog data
 
   Returns:
     report_path: report path for current testing result.
@@ -353,15 +354,17 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write(script)
 
     report.write(
-        "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'><p>"
-        "<b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
+        "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'>"
+        "<p><b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
-        f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
-        f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
-        "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}</p>"
+        f"<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
+        f"<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
+        f"<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
+        "<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
+        "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
     )
     if not fails:

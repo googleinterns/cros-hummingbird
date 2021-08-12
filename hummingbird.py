@@ -1090,10 +1090,11 @@ class HummingBird(AnalogMeasurer):
     uni_addr = list(set(addr_list))
     uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
 
+    sampling_rate = round(1 / self.sampling_period * 1e-6)
     svg_fields = self.get_svg_fields(result, svgwidth)
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
-        fail.copy(), num_pass, svg_fields, uni_addr)
+        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate)
     subprocess.run(["open", report_path], check=True)
 
     return values
