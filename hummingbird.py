@@ -183,6 +183,32 @@ class HummingBird(AnalogMeasurer):
     if self.start_time is None:
       self.start_time = data.start_time
 
+  def max_of_filtered_arr(self, data, threshold=1):
+    """Return the maximum value of the filtered array.
+
+    Remove glitch from per 0.1us segment
+    Remove voltage difference between two sample points
+    larger than 1V
+    Return the maximum value of the filtered array
+
+    Args:
+      data: raw voltage data
+      threshold: difference larger than threshold would be removed
+                 (default: 1V)
+
+    Returns:
+      maxx: the maxium voltage of the filtered data
+    """
+    data = np.array(data.copy())
+    length = round(1e-7 / self.sampling_period)
+    segments = len(data) // length
+    maxx = 0
+    for i in range(segments):
+      arr = data[i * length:(i + 1) * length]
+      median = np.median(arr)
+      maxx = max(np.max(arr[arr < median + threshold]), maxx)
+    return maxx
+
   def determine_working_voltage(self, data):
     """Determine Working Voltage.
 
