@@ -17,7 +17,7 @@ if not os.path.exists(LOCAL_PATH):
 
 
 def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
-            rect_idx: int, rect_width: int, field: str):
+            rect_idx: int, rect_width: int, field: str, vs: float):
   """Generate SVG plot.
 
   Args:
@@ -27,6 +27,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     rect_idx:  index where the worst pattern occurs
     rect_width:  the index width where the worst pattern last
     field:  the SPEC field of this SVG plot
+    vs: working voltage, for 30p and 70p marker on plot
 
   Returns:
     SVG plot to write in the html report.
@@ -87,6 +88,9 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy2 = (data_max - int(yy2 * 50)) * 2 + 160
     xx2 = xx2 // rate * 5
 
+    y30p = (data_max - int(vs * 0.3 * 50)) * 2 + 160
+    y70p = (data_max - int(vs * 0.7 * 50)) * 2 + 160
+
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
@@ -97,26 +101,50 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
           f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
           f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
+      if abs(yy1 - y30p) < abs(yy1 - y70p):
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+      if abs(yy2 - y30p) < abs(yy2 - y70p):
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+      else:
+        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
 
   # Data Polyline
 
@@ -135,7 +163,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      result: typing.Dict[str, np.float64],
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
-                     addr: typing.List[str]):
+                     addr: typing.List[str], sampling_rate: int):
   """Write HTML report.
 
   Args:
@@ -150,6 +178,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     num_pass:  number of passed SPEC fields
     svg_fields:  SVG plot dictionary for each SPEC field
     addr:  addresses included in the capture
+    sampling_rate: sampling rate of the analog data
 
   Returns:
     report_path: report path for current testing result.
@@ -310,6 +339,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     .arrow {
       fill: #555;
       display: none;
+    }
+    .text {
+      fill: black;
+      font-size: 50px;
     }"""
 
     script = """<script>
@@ -353,15 +386,17 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write(script)
 
     report.write(
-        "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'><p>"
-        "<b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
+        "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'>"
+        "<p><b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}"
-        f"</p><p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p><p><b>Operation "
-        f"Voltage:</b>&nbsp;&nbsp;{vs}V</p><p><b>Reference SPEC Link:</b>&nbsp;"
-        "&nbsp;<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
+        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}</p>"
+        f"<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
+        f"<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
+        f"<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
+        "<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
+        "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
     )
     if not fails:
