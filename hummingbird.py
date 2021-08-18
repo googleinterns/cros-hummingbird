@@ -595,7 +595,9 @@ class HummingBird(AnalogMeasurer):
           (math.ceil(sda.high_end) == i) and self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 9)):
+             self.data_start_flag != 9) or
+            (not self.first_packet and not read_flag and
+             self.data_start_flag == 9)):
           measure_field = self.add_measurement(
               measure_field, "t_HD_DAT_falling_dev",
               [i - interpolation, sda.high_end - scl.low_start]
@@ -610,7 +612,9 @@ class HummingBird(AnalogMeasurer):
           (math.ceil(sda.low_end) == i) and self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 9)):
+             self.data_start_flag != 9) or
+            (not self.first_packet and not read_flag and
+             self.data_start_flag == 9)):
           measure_field = self.add_measurement(
               measure_field, "t_HD_DAT_rising_dev",
               [i - interpolation, sda.low_end - scl.low_start]
@@ -627,7 +631,9 @@ class HummingBird(AnalogMeasurer):
           self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 8) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 8)):
+             self.data_start_flag != 8) or
+            (not self.first_packet and not read_flag and
+             self.data_start_flag == 8)):
           measure_field = self.add_measurement(
               measure_field, "t_SU_DAT_falling_dev",
               [i - interpolation, scl.low_end - sda.low_start]
@@ -643,7 +649,9 @@ class HummingBird(AnalogMeasurer):
           self.data_start_flag):
         if ((self.first_packet and self.data_start_flag == 8) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 8)):
+             self.data_start_flag != 8) or
+            (not self.first_packet and not read_flag and
+             self.data_start_flag == 8)):
           measure_field = self.add_measurement(
               measure_field, "t_SU_DAT_rising_dev",
               [i - interpolation, scl.low_end - sda.high_start]
