@@ -206,12 +206,13 @@ class HummingBird(AnalogMeasurer):
       arr = data[i * length:(i + 1) * length]
       median = np.median(arr)
       maxx = max(np.max(arr[arr < median + threshold]), maxx)
+
     return maxx
 
   def determine_working_voltage(self, data):
     """Determine Working Voltage.
 
-    Perform de-glitch on data and using the maximum 
+    Perform de-glitch on data and using the maximum
     voltage value to predict the working voltage.
 
     Args:
@@ -793,98 +794,104 @@ class HummingBird(AnalogMeasurer):
     fields1 = ["v_high_scl", "v_low_scl", "v_high_sda", "v_low_sda"]
     for f in fields1:
       ff = "_".join(f.split("_")[:-1])
+      measure_max = measure_field.get(f + "_max")
+      measure_min = measure_field.get(f + "_min")
       if (self.requested_measurements[f + "_worst"] and
-          measure_field.get(f + "_max") and measure_field.get(f + "_min")):
-
-        values[f + "_max"] = measure_field[f + "_max"][1]
-        values[f + "_min"] = measure_field[f + "_min"][1]
+          measure_max and measure_min):
+        values[f + "_max"] = measure_max[1]
+        values[f + "_min"] = measure_min[1]
+        limit = spec_limit[ff]
         if "high" in f:
-          values[f + "_worst"] = values[f + "_min"]
-          result[f + "_idx"] = measure_field[f + "_min"][0]
-          result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff]
-          svgwidth[f] = measure_field[f + "_min"][2]
+          values[f + "_worst"] = measure_min[1]
+          result[f + "_idx"] = measure_min[0]
+          result[f + "_margin"] = measure_min[1] - limit
+          svgwidth[f] = measure_min[2]
         elif "low" in f:
-          values[f + "_worst"] = values[f + "_max"]
-          result[f + "_idx"] = measure_field[f + "_max"][0]
-          result[f + "_margin"] = spec_limit[ff] - values[f + "_worst"]
-          svgwidth[f] = measure_field[f + "_max"][2]
-        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff] * 100
+          values[f + "_worst"] = measure_max[1]
+          result[f + "_idx"] = measure_max[0]
+          result[f + "_margin"] = limit - measure_max[1]
+          svgwidth[f] = measure_max[2]
+        result[f + "_percent"] = result[f + "_margin"] / limit * 100
 
     fields2 = ["v_nh_scl", "v_nl_scl", "v_nh_sda", "v_nl_sda"]
     for f in fields2:
       ff = f.replace("nh", "high").replace("nl", "low")
       ff2 = "_".join(f.split("_")[:-1])
-      if (self.requested_measurements[f + "_worst"] and
-          measure_field[ff + "_max"] and measure_field[ff + "_min"]):
+      value_max = values.get(ff + "_max")
+      value_min = values.get(ff + "_min")
+      if self.requested_measurements[f + "_worst"] and value_max and value_min:
         if "nh" in f:
-          values[f + "_max"] = (values[ff + "_max"] - self.v_70p) / vs
-          values[f + "_min"] = (values[ff + "_min"] - self.v_70p) / vs
+          maxx = (value_max - self.v_70p) / vs
+          minn = (value_min - self.v_70p) / vs
         elif "nl" in f:
-          values[f + "_max"] = (self.v_30p - values[ff + "_min"]) / vs
-          values[f + "_min"] = (self.v_30p - values[ff + "_max"]) / vs
-        values[f + "_worst"] = values[f + "_min"]
+          maxx = (self.v_30p - value_min) / vs
+          minn = (self.v_30p - value_max) / vs
+        values[f + "_min"] = minn
+        values[f + "_max"] = maxx
+        values[f + "_worst"] = minn
         result[f + "_idx"] = result[ff + "_idx"]
         svgwidth[f] = svgwidth[ff]
-        if values[f + "_worst"] >= spec_limit[ff2]:
+        limit = spec_limit[ff2]
+        if minn >= limit:
           result[f] = 0
         else:
           result[f] = 1
-        result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff2]
-        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff2] * 100
+        result[f + "_margin"] = minn - limit
+        result[f + "_percent"] = (minn - limit) / limit * 100
 
+    measure_max = measure_field.get("T_clk_max")
+    measure_min = measure_field.get("T_clk_min")
     if (self.requested_measurements["f_clk_worst"] and
-        measure_field.get("T_clk_max") and measure_field.get("T_clk_min")):
-      t_clk_min = measure_field["T_clk_min"][1] * self.scl_sampling_period
-      values["f_clk_max"] = 1 / t_clk_min
-      t_clk_max = measure_field["T_clk_max"][1] * self.scl_sampling_period
-      values["f_clk_min"] = 1 / t_clk_max
-      values["f_clk_worst"] = values["f_clk_max"]
-      result["f_clk_idx"] = measure_field["T_clk_min"][0]
-      svgwidth["f_clk"] = measure_field["T_clk_min"][1]
-      if int(values["f_clk_worst"]) <= spec_limit["f_clk"]:
+        measure_max and measure_min):
+      t_clk_min = measure_min[1] * self.scl_sampling_period
+      maxx = int(1 / t_clk_min)
+      t_clk_max = measure_max[1] * self.scl_sampling_period
+      minn = int(1 / t_clk_max)
+      values["f_clk_max"] = maxx
+      values["f_clk_min"] = minn
+      values["f_clk_worst"] = maxx
+      result["f_clk_idx"] = measure_min[0]
+      svgwidth["f_clk"] = measure_min[1]
+      limit = spec_limit["f_clk"]
+      if maxx <= limit:
         result["f_clk"] = 0
       else:
         result["f_clk"] = 1
-      result["f_clk_margin"] = int(spec_limit["f_clk"] - values["f_clk_worst"])
-      result["f_clk_percent"] = (
-          result["f_clk_margin"] / spec_limit["f_clk"] * 100
-      )
+      result["f_clk_margin"] = limit - maxx
+      result["f_clk_percent"] = limit - maxx / limit * 100
 
     fields3 = ["t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl"]
     for f in fields3:
-      if(self.requested_measurements[f + "_worst"] and
-         measure_field.get(f + "_max") and measure_field.get(f + "_min")):
-        values[f + "_max"] = (
-            measure_field[f + "_max"][1] * self.sampling_period)
-        values[f + "_min"] = (
-            measure_field[f + "_min"][1] * self.sampling_period)
+      measure_max = measure_field.get(f + "_max")
+      measure_min = measure_field.get(f + "_min")
+      if (self.requested_measurements[f + "_worst"] and
+          measure_max and measure_min):
+        maxx = measure_max[1] * self.sampling_period
+        minn = measure_min[1] * self.sampling_period
+        values[f + "_max"] = maxx
+        values[f + "_min"] = minn
         ff = "_".join(f.split("_")[:-1])
-        if spec_limit.get(ff + "_max") is not None:
-          if spec_limit.get(ff + "_min") is None:
+        limit_max = spec_limit.get(ff + "_max")
+        if limit_max:
+          limit_min = spec_limit.get(ff + "_min")
+          if not limit_min:
             limit_min = np.NINF
-          else:
-            limit_min = spec_limit[ff + "_min"]
-          if (values[f + "_max"] <= spec_limit[ff + "_max"] and
-              values[f + "_min"] >= limit_min):
+          if maxx <= limit_max and minn >= limit_min:
             result[f] = 0
           else:
             result[f] = 1
-          if (spec_limit[ff + "_max"] - values[f + "_max"] <
-              values[f + "_min"] - limit_min):
-            values[f + "_worst"] = values[f + "_max"]
-            result[f + "_idx"] = measure_field[f + "_max"][0]
-            svgwidth[f] = measure_field[f + "_max"][1]
-            result[f + "_margin"] = spec_limit[ff + "_max"] - values[f + "_max"]
-            result[f + "_percent"] = (
-                result[f + "_margin"] / spec_limit[ff + "_max"] * 100)
+          if limit_max - maxx < minn - limit_min:
+            values[f + "_worst"] = maxx
+            result[f + "_idx"] = measure_max[0]
+            svgwidth[f] = measure_max[1]
+            result[f + "_margin"] = limit_max - maxx
+            result[f + "_percent"] = (limit_max - maxx) / limit_max * 100
           else:
-            values[f + "_worst"] = values[f + "_min"]
-            result[f + "_idx"] = measure_field[f + "_min"][0]
-            svgwidth[f] = measure_field[f + "_min"][1]
-            result[f + "_margin"] = values[f + "_min"] - limit_min
-            result[f + "_percent"] = result[f + "_margin"] / limit_min * 100
-        else:  # to show rise/fall time value when only SDA is captured
-          values[f + "_worst"] = values[f + "_max"]
+            values[f + "_worst"] = minn
+            result[f + "_idx"] = measure_min[0]
+            svgwidth[f] = measure_min[1]
+            result[f + "_margin"] = minn - limit_min
+            result[f + "_percent"] = (minn - limit_min) / limit_min * 100
 
     fields4 = [
         "t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF", "t_HD_STA_S",
@@ -892,59 +899,63 @@ class HummingBird(AnalogMeasurer):
         "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev"
     ]
     for f in fields4:
-      if(self.requested_measurements[f + "_worst"] and
-         measure_field.get(f + "_max") and measure_field.get(f + "_min")):
+      measure_max = measure_field.get(f + "_max")
+      measure_min = measure_field.get(f + "_min")
+      if (self.requested_measurements[f + "_worst"] and
+          measure_max and measure_min):
         if f in ["t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF"]:
           ff = f
         elif f in ["t_HD_STA_S", "t_HD_STA_Sr"]:
           ff = "_".join(f.split("_")[:-1])
         else:
           ff = "_".join(f.split("_")[:-2])
-        values[f + "_max"] = (
-            measure_field[f + "_max"][1] * self.scl_sampling_period)
-        values[f + "_min"] = (
-            measure_field[f + "_min"][1] * self.scl_sampling_period)
-        values[f + "_worst"] = values[f + "_min"]
-        result[f + "_idx"] = measure_field[f + "_min"][0]
-        svgwidth[f] = measure_field[f + "_min"][1]
-        if values[f + "_worst"] >= spec_limit[ff]:
+        maxx = measure_max[1] * self.scl_sampling_period
+        minn = measure_min[1] * self.scl_sampling_period
+        values[f + "_max"] = maxx
+        values[f + "_min"] = minn
+        values[f + "_worst"] = minn
+        result[f + "_idx"] = measure_min[0]
+        svgwidth[f] = measure_min[1]
+        limit = spec_limit[ff]
+        if minn >= limit:
           result[f] = 0
         else:
           result[f] = 1
-        result[f + "_margin"] = values[f + "_worst"] - spec_limit[ff]
-        result[f + "_percent"] = result[f + "_margin"] / spec_limit[ff] * 100
+        result[f + "_margin"] = minn - limit
+        result[f + "_percent"] = (minn - limit) / limit * 100
 
     fields5 = [
         "t_HD_DAT_rising_host", "t_HD_DAT_falling_host", "t_HD_DAT_rising_dev",
         "t_HD_DAT_falling_dev"
     ]
     for f in fields5:
-      if(self.requested_measurements[f + "_worst"] and
-         measure_field.get(f + "_max") and measure_field.get(f + "_min")):
+      measure_max = measure_field.get(f + "_max")
+      measure_min = measure_field.get(f + "_min")
+      if (self.requested_measurements[f + "_worst"] and
+          measure_max and measure_min):
         ff = "_".join(f.split("_")[:-2])
-        values[f + "_max"] = (
-            measure_field[f + "_max"][1] * self.scl_sampling_period)
-        values[f + "_min"] = (
-            measure_field[f + "_min"][1] * self.scl_sampling_period)
-        if spec_limit.get(ff) is None:
+        maxx = measure_max[1] * self.scl_sampling_period
+        minn = measure_min[1] * self.scl_sampling_period
+        values[f + "_max"] = maxx
+        values[f + "_min"] = minn
+        limit_max = spec_limit.get(ff)
+        if not limit_max:
           limit_max = np.inf
-        else:
-          limit_max = spec_limit[ff]
-        if values[f + "_min"] >= 0 and values[f + "_max"] <= limit_max:
+        if minn >= 0 and maxx <= limit_max:
           result[f] = 0
         else:
           result[f] = 1
-        if values[f + "_min"] - 0 < limit_max - values[f + "_max"]:
-          values[f + "_worst"] = values[f + "_min"]
-          result[f + "_idx"] = measure_field[f + "_min"][0]
-          svgwidth[f] = measure_field[f + "_min"][1]
-          result[f + "_margin"] = values[f + "_min"] - 0
+        if minn - 0 < limit_max - maxx:
+          values[f + "_worst"] = minn
+          result[f + "_idx"] = measure_min[0]
+          svgwidth[f] = measure_min[1]
+          result[f + "_margin"] = minn - 0
         else:
-          values[f + "_worst"] = values[f + "_max"]
-          result[f + "_idx"] = measure_field[f + "_max"][0]
-          svgwidth[f] = measure_field[f + "_max"][1]
-          result[f + "_margin"] = limit_max - values[f + "_max"]
-        result[f + "_percent"] = result[f + "_margin"]/limit_max * 100
+          values[f + "_worst"] = maxx
+          result[f + "_idx"] = measure_max[0]
+          svgwidth[f] = measure_max[1]
+          result[f + "_margin"] = limit_max - maxx
+        result[f + "_percent"] = result[f + "_margin"] / limit_max * 100
 
     return values, result, svgwidth
 
@@ -1129,7 +1140,8 @@ class HummingBird(AnalogMeasurer):
     svg_fields = self.get_svg_fields(result, svgwidth, vs)
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
-        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate)
+        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate
+    )
     subprocess.run(["open", report_path], check=True)
 
     return values
