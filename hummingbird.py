@@ -408,11 +408,13 @@ class HummingBird(AnalogMeasurer):
     Returns:
       measure_field: measure value for each SPEC parameter
     """
-    if measure_field.get(field + "_max"):
-      if measure_field[field + "_max"][1] < new_result[1]:
-        measure_field[field + "_max"] = new_result
-      elif measure_field[field + "_min"][1] > new_result[1]:
-        measure_field[field + "_min"] = new_result
+    measure_max = measure_field.get(field + "_max")
+    if measure_max:
+      measure_min = measure_field.get(field + "_min")
+      if measure_max[1] < new_result[1]:
+        measure_max[:] = new_result
+      elif measure_min[1] > new_result[1]:
+        measure_min[:] = new_result
     else:
       measure_field[field + "_max"] = new_result
       measure_field[field + "_min"] = new_result
