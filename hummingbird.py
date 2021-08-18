@@ -199,7 +199,6 @@ class HummingBird(AnalogMeasurer):
     Returns:
       maxx: the maxium voltage of the filtered data
     """
-    data = np.array(data.copy())
     length = round(1e-7 / self.sampling_period)
     segments = len(data) // length
     maxx = 0
@@ -221,7 +220,7 @@ class HummingBird(AnalogMeasurer):
     Returns:
       vs: working voltage
     """
-    v_max = np.max(data)
+    v_max = self.max_of_filtered_arr(data)
 
     vs_list = [1.8, 3.3, 5]
     pos = np.argmax(vs_list > v_max)
