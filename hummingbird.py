@@ -25,18 +25,19 @@ class Logic():
   """Logic State.
 
   Specify the logic state of the analog dataline.
-  Transition between state HIGH and state LOW would be 30%Vdd and 70%Vdd
+  Transition between state HIGH and state LOW
+  would be 30% Vdd and 70% Vdd
 
   Attributes:
-    i_30p:  index achieve 30%Vdd
-    i_70p:  index achieve 70%Vdd
+    i_30p: index achieve 30% Vdd
+    i_70p: index achieve 70% Vdd
     high_start: index where state HIGH begin
-    high_end:   index where state HIGH end
-    low_start:   index where state LOW begin
-    low_end:   index where state LOW end
-    state:   current logic state of the dataline. (three states: 1/0/None)
-    last_low_start:   index where last time state LOW start
-    last_high_start:   index where last time state HIGH start
+    high_end: index where state HIGH end
+    low_start: index where state LOW begin
+    low_end: index where state LOW end
+    state: current logic state of the dataline. (three states: 1 / 0 / None)
+    last_low_start: index where last time state LOW start
+    last_high_start: index where last time state HIGH start
   """
 
   def __init__(self):
@@ -57,28 +58,31 @@ class HummingBird(AnalogMeasurer):
   This is the main module called by Saleae measurement API.
 
   Attributes:
-    samples:  analog data samples, in the format of (time index, voltage value)
-    start_time:  captured analog data start time
+    samples: analog data samples,
+             in the format of (time_index, voltage_value)
+    start_time: captured data start time
     sampling_period: time between two samples
-    stop_flag:  STOP pattern detected, raise to 1 until START pattern
-    start_flag:  START pattern detected, remain 1 for one package
-                 (would last 9 SCL clock cycle)
-    restart_flag:  RESTART pattern detected, remain 1 for one package
-                 (would last 9 SCL clock cycle)
-    data_start_flag:  from first SCL clock cycle after START or RESTART pattern,
-                      remain 1 for one package (9 SCL clock cycle)
+    stop_flag: STOP pattern detected,
+               raise to 1 until START pattern
+    start_flag: START pattern detected,
+                remain 1 until STOP or RESTART pattern
+    restart_flag: RESTART pattern detected,
+                  remain 1 until STOP pattern
+    data_start_flag: from the first SCL clock cycle after START
+                     or RESTART pattern, remain 1 for one package
+                     (9 SCL clock cycles)
 
-    scl_data_path:  SCL data save path
-    scl_data:  SCL data
-    scl_start_time:  SCL data start time
-    scl_sampling_period:  SCL data sampling period
-    f_clk:  SCL clock frequency
-    sda_data_path:  SDA data save path
-    sda_data:  SDA data
-    sda_start_time:  SDA data start time
-    sda_sampling_period:  SDA data sampling period
+    scl_data_path: SCL data save path
+    scl_data: SCL data
+    scl_start_time: SCL data start time
+    scl_sampling_period: SCL data sampling period
+    f_clk: SCL clock frequency
+    sda_data_path: SDA data save path
+    sda_data: SDA data
+    sda_start_time: SDA data start time
+    sda_sampling_period: SDA data sampling period
 
-    requested_measurements: measurement required in extension.json
+    requested_measurements: measurement required by extension.json
   """
 
   def __init__(self, requested_measurements):
@@ -86,10 +90,10 @@ class HummingBird(AnalogMeasurer):
 
     Initialize your measurement extension here
     Each measurement object will only be used once,
-    all per-measurement initialization are here
+    all pre-measurement initialization are here
 
     Args:
-      requested_measurements:  measurement required in from extension.json
+      requested_measurements: measurement required by extension.json
     """
     supported_measurements = [
         "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "v_nl_scl",
@@ -108,7 +112,7 @@ class HummingBird(AnalogMeasurer):
     self.stop_flag = 1
     self.start_flag = 0
     self.restart_flag = 0
-    self.data_start_flag = 0  # 1 when first scl high
+    self.data_start_flag = 0
     self.first_packet = 0
 
     self.scl_data_path = os.path.join(LOCAL_PATH, "SCL.txt")
@@ -149,7 +153,6 @@ class HummingBird(AnalogMeasurer):
         self.sda_sampling_period = float(head[1].split("\n")[0])
         self.sda_data = np.loadtxt(self.sda_data_path, delimiter=",",
                                    skiprows=2)
-
       os.remove(self.sda_data_path)
 
     self.v_30p = None
@@ -172,7 +175,7 @@ class HummingBird(AnalogMeasurer):
 
     Args:
       data:
-        data.samples is a numpy array of float32 voltages, one for each sample
+        data.samples is a numpy array of float32 voltages
         data.sample_count is the number of samples
     """
     self.samples.append(data.samples)
@@ -186,9 +189,8 @@ class HummingBird(AnalogMeasurer):
   def max_of_filtered_arr(self, data, threshold=1):
     """Return the maximum value of the filtered array.
 
-    Remove glitch from per 0.1us segment
-    Remove voltage difference between two sample points
-    larger than 1V
+    Remove glitch or spike (voltage difference between
+    two sample points larger than 1V) per 0.1us segment
     Return the maximum value of the filtered array
 
     Args:
@@ -240,10 +242,10 @@ class HummingBird(AnalogMeasurer):
   def determine_datatype(self, data):
     """Determine Data Type.
 
-    Read the first four cycle to determine data type
+    Read the first five cycles to determine data type
     Consider different sampling rate by multiply sampling_period
     Avoid extreme value which might cause by clk stretching
-    Calculate the difference percentage of f_max and f_avg
+    Calculate the difference percentage of t_max and t_min
     SCL should be stable and the difference should be small
 
     Constrain: should capture at least five SCL clk cycles
@@ -252,7 +254,7 @@ class HummingBird(AnalogMeasurer):
       data: numpy array of voltages values
 
     Returns:
-      datatype:  SCL or SDA
+      datatype: current capture is SCL or SDA
     """
     datatype = None
     dataline = Logic()
@@ -303,10 +305,11 @@ class HummingBird(AnalogMeasurer):
   def determine_operation_mode(self):
     """Determine Operation Mode.
 
-    Using average f_clk from first five cycles to predict operation mode
+    Using maximum f_clk from first five cycles to predict
+    operation mode
 
     Returns:
-      mode: operation mode (Standard mode/Fast Mode/Fast Mode Plus)
+      mode: operation mode (Standard mode / Fast Mode / Fast Mode Plus)
     """
     if self.f_clk < 1.1e5:
       mode = "Standard Mode"
@@ -321,7 +324,8 @@ class HummingBird(AnalogMeasurer):
     """Process 1st or 2nd Capture.
 
     If 1st, write data.
-    If 2nd, solve datatime time zone when convert datatime to graphtime
+    If 2nd, solve datatime time zone when convert datatime
+    to graphtime
 
     Args:
       datatype: SCL or SDA
@@ -372,7 +376,7 @@ class HummingBird(AnalogMeasurer):
     Find overlap region of the two captures
 
     Raises:
-      Exception:  SDA and SCL data time range is not overlapped
+      Exception: SDA and SCL data time range is not overlapped
     """
     if self.scl_start_time > self.sda_start_time:
       delta_s = (self.scl_start_time - self.sda_start_time).__float__()
@@ -402,7 +406,7 @@ class HummingBird(AnalogMeasurer):
 
     Args:
       measure_field: measure value for each SPEC parameter
-      field: specific parameter field
+      field: the name of the parameter field
       new_result: new measurement to compare
 
     Returns:
@@ -628,6 +632,8 @@ class HummingBird(AnalogMeasurer):
               [i - interpolation, sda.low_end - scl.low_start]
           )
 
+      # Check at 8 fr setup time since data_start_flag increment at high
+
       if ((sda.state == 0) and scl.low_end is not None and
           (math.ceil(scl.low_end) == i) and
           ((scl.low_start is None) or (scl.low_start < sda.low_start)) and
@@ -731,10 +737,10 @@ class HummingBird(AnalogMeasurer):
     return measure_field, addr_list
 
   def get_spec_limitation(self, mode, vs):
-    """Get SPEC limitation according to mode.
+    """Get SPEC limitation according to operation mode.
 
     Args:
-      mode: operation mode (Standard mode/Fast Mode/Fast Mode Plus)
+      mode: operation mode (Standard mode / Fast Mode / Fast Mode Plus)
       vs: working voltage
 
     Returns:
@@ -761,7 +767,7 @@ class HummingBird(AnalogMeasurer):
         "t_SU_STO": 2.6e-7, "t_BUF": 5e-7
     }
 
-    # Check Only Voltage SPEC Constrain If Can't Determine SPEC Mode yet
+    # Check only voltage SPEC constrain if no operation mode provided
 
     spec_limit = {
         "v_nh": 0.2, "v_nl": 0.1, "v_low": 0.3 * vs, "v_high": 0.7 * vs
@@ -786,7 +792,7 @@ class HummingBird(AnalogMeasurer):
 
     Returns:
       values: max, min, worst measurement of each parameter
-      result: pass/fail, margin of each parameter
+      result: pass/fail, margin, start_idx, margin_percentage of each parameter
       svgwidth: worst case width for SVG plot
     """
     values = {}
@@ -962,10 +968,10 @@ class HummingBird(AnalogMeasurer):
     return values, result, svgwidth
 
   def get_svg_fields(self, result, svgwidth, vs):
-    """Save SVG Data for Each parameter.
+    """Save SVG Plot for Each parameter.
 
     Calculate Max/Min Value for Plot Boundary
-    Then generate svg plot for each parameter
+    Then generate SVG plot for each parameter
 
     Args:
       result: get start idx of worst waveform
@@ -1010,9 +1016,9 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
-            f"<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
+            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"\n\t\t\t\t<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
 
     fields2 = [
@@ -1034,9 +1040,9 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["sda"] += (
-            f"<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
+            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"\n\t\t\t\t<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
 
     fields3 = [
@@ -1065,16 +1071,16 @@ class HummingBird(AnalogMeasurer):
         rect_x = idx // rate * 5 - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
-            f"<rect id='{f}_scl_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
-            f"<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
-            f"<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
+            f"\n\t\t\t\t<rect id='{f}_scl_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"\n\t\t\t\t<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
+            f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
         svg_fields["sda"] += (
-            f"<rect id='{f}_sda_rect' x={rect_x} y='0' width={rect_width} height=100%"
-            f" class='rect hide''/>"
+            f"\n\t\t\t\t<rect id='{f}_sda_rect' x={rect_x} y='0' width={rect_width} height=100%"
+            f" class='rect hide'/>"
         )
-    svg_fields["scl"] += "</svg></div></div>"
-    svg_fields["sda"] += "</svg></div></div>"
+    svg_fields["scl"] += "\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
+    svg_fields["sda"] += "\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
 
     return svg_fields
 
@@ -1083,7 +1089,7 @@ class HummingBird(AnalogMeasurer):
 
     This method is called after all the relevant data has been passed
     to process_data function. It returns a dictionary of the required
-    measurements values.
+    measurement values.
 
     Returns:
       values: dictionary of request_measurements values
@@ -1102,8 +1108,7 @@ class HummingBird(AnalogMeasurer):
     else:
       return {"spec": 0}
 
-    ################### find SPEC value ##############################
-    # Constrain: should capture from START pattern
+    ################### Measure Each Parameter ############################
 
     supported_measurements = [
         "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
@@ -1117,7 +1122,7 @@ class HummingBird(AnalogMeasurer):
            for k in self.requested_measurements):
       measure_field, addr_list = self.measure_both_scl_sda()
 
-    ################### check SPEC limitation ##############################
+    ################### Check SPEC Limitation ##############################
 
     spec_limit = self.get_spec_limitation(mode, vs)
     values, result, svgwidth = self.check_spec(spec_limit, measure_field, vs)

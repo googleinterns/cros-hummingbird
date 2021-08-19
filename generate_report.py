@@ -1,7 +1,6 @@
 """HummingBird Report methods.
 
-The file contain methods related to output report.
-
+methods related to the output report.
 """
 import datetime
 import math
@@ -21,12 +20,12 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   """Generate SVG plot.
 
   Args:
-    data:  numpy array of voltages
-    data_max:  data maximum value
-    data_min:  data minimum value
-    rect_idx:  index where the worst pattern occurs
-    rect_width:  the index width where the worst pattern last
-    field:  the SPEC field of this SVG plot
+    data: numpy array of voltages
+    data_max: data maximum value
+    data_min: data minimum value
+    rect_idx: index where the worst pattern occurs
+    rect_width: the index width of the worst pattern
+    field: the name of the parameter field
     vs: working voltage, for 30p and 70p marker on plot
 
   Returns:
@@ -41,36 +40,36 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   if field == "scl_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left'>SCL capture</div>"
-        "<div class='column_right'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+        f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SCL capture</div>"
+        "\n\t\t<div class='column_right'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
     )
 
   elif field == "sda_show":
     svgfile += (
-        f"<div id='{field}'><div class='column_left margin'>SDA capture</div>"
-        "<div class='column_right margin'>"
-        f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+        f"\n\t<div id='{field}'>\n\t\t<div class='column_left margin'>SDA capture</div>"
+        "\n\t\t<div class='column_right margin'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
     )
 
   else:
-    svgfile += f"<div id='{field}_hide' class='hide'>"
+    svgfile += f"\n\t<div id='{field}_hide' class='hide'>"
     if "sda" in field:
       svgfile += (
-          "<div class='column_left margin'>SDA<br>zoom in</div>"
-          "<div class='column_right margin'>"
+          "\n\t\t<div class='column_left margin'>SDA<br>zoom in</div>"
+          "\n\t\t<div class='column_right margin'>"
       )
     elif "SU" not in field and "HD" not in field and "BUF" not in field:
       svgfile += (
-          "<div class='column_left margin'>SCL<br>zoom in</div>"
-          "<div class='column_right margin'>"
+          "\n\t\t<div class='column_left margin'>SCL<br>zoom in</div>"
+          "\n\t\t<div class='column_right margin'>"
       )
     else:
       svgfile += (
-          "<div class='column_left'>SCL<br>zoom in</div>"
-          "<div class='column_right'>"
+          "\n\t\t<div class='column_left'>SCL<br>zoom in</div>"
+          "\n\t\t<div class='column_right'>"
       )
-    svgfile += f"<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
 
     # Red Rect to Mark the Measure Area
 
@@ -94,66 +93,66 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     rect_width = max(rect_width // rate * 5, 7)
     rect_x = rect_idx // rate * 5 - rect_width
     svgfile += (
-        f"<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
+        f"\n\t\t\t\t<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
     )
     if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
         ("HD_STA" in field and "sda" in field)):
       svgfile += (
-          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
-          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
       if abs(yy2 - y30p) < abs(yy2 - y70p):
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
       svgfile += (
-          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
-          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
       if abs(yy2 - y30p) < abs(yy2 - y70p):
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
-          f"<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
-          f"<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
       if abs(yy2 - y30p) < abs(yy2 - y70p):
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
       else:
-        svgfile += f"<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
 
   # Data Polyline
 
   points = ""
   for i in range(0, len(data), rate):
     points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 160} "
-  svgfile += f"<polyline points='{points}' class='plotline'/>"
+  svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
   if field != "scl_show" and field != "sda_show":
-    svgfile += "</svg></div></div>"
+    svgfile += "\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
 
   return svgfile
 
@@ -167,21 +166,21 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
   """Write HTML report.
 
   Args:
-    mode:  operation mode
-    spec:  dictionary of SPEC limitation for each field (max/min)
-    vs:    working voltge
-    values:  dictionary of measurement for each field
-             include max/min/worst for each field
-    result:  dictionary of electrical test result
-             include Pass or Fail/margin/margin percentage for each field
-    fail:  dictionary of the failed SPEC fields
-    num_pass:  number of passed SPEC fields
-    svg_fields:  SVG plot dictionary for each SPEC field
-    addr:  addresses included in the capture
+    mode: operation mode
+    spec: dictionary of SPEC limitation for each field (max / min)
+    vs: working voltge
+    values: dictionary of measurement for each field
+            include max / min / worst for each field
+    result: dictionary of electrical test result
+            include Pass or Fail / margin / margin percentage for each field
+    fail: dictionary of the failed SPEC fields
+    num_pass: number of pass of the test
+    svg_fields: SVG plot dictionary for each SPEC field
+    addr: device address included in the capture
     sampling_rate: sampling rate of the analog data
 
   Returns:
-    report_path: report path for current testing result.
+    report_path: save path for current report.
   """
   result_num = len(fail) + num_pass
   fails = ", ".join(list(fail.keys()))
@@ -205,9 +204,11 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       LOCAL_PATH, f"report_{time_now.strftime('%Y%m%d%H%M%S')}.html"
   )
   with open(report_path, "w") as report:
-    report.write("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'>")
-    report.write("<title>HummingBird Output Report</title><style>")
-    style = """body {
+    report.write(
+        "<!DOCTYPE html><html lang='en'>\n<head>\n\t<meta charset='UTF-8'>"
+    )
+    report.write("\n\t<title>HummingBird Output Report</title>\n\t<style>")
+    style = """\n\t\tbody {
       padding: 1% 3% 4% 3%;
       font-family: arial, sans-serif;
       font-size: 18px;
@@ -346,8 +347,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       font-size: 50px;
     }"""
 
-    script = """<script>
-    function ShowSVG(x){
+    script = """\n\t<script>
+    function ShowSVG(x) {
       console.log(x);
       ele_self = document.getElementById(x);
       selector1 = `#${x}_hide, #${x}_scl_hide, #${x}_sda_hide, `;
@@ -380,42 +381,44 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
             })
           }
        })
-     }
-    </script>"""
+     }\n\t</script>"""
     report.write(style)
-    report.write("</style></head><body>")
+    report.write("\n\t</style>\n</head>\n<body>")
     report.write(script)
 
     report.write(
-        "<h1>HummingBird I2C Electrical Testing Report</h1><div class='left'>"
-        "<p><b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
+        "\n\t<h1>HummingBird I2C Electrical Testing Report</h1>\n\t<div class='left'>"
+        "\n\t\t<p><b>Report Time:</b>&nbsp;&nbsp;&nbsp;&nbsp;"
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;{report_path}</p>"
-        f"<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
-        f"<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
-        f"<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
-        "<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
+        f"</p>\n\t\t<p><b>File Save Path:</b>&nbsp;{report_path}</p>"
+        f"\n\t\t<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
+        f"\n\t\t<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
+        f"\n\t\t<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
+        "\n\t\t<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
         "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
     )
     if not fails:
-      report.write("<p>Pass SPEC test successfully! :)</p>")
+      report.write("\n\t\t<p>Pass SPEC test successfully! :)</p>")
     else:
-      report.write("<p><b>Fail:</b>&nbsp;&nbsp;" + fails + "</p>")
-    report.write("<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;")
+      report.write("\n\t\t<p><b>Fail:</b>&nbsp;&nbsp;" + fails + "</p>")
+    report.write("\n\t\t<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;")
     report.write(" ".join(addr))
     report.write(
-        "</div></div><div class='right'><table class='summary'><tr>"
-        "<th colspan=2>Margin Threshold</th></tr><tr><td><b>Warning</b></td>"
-        "<td class='warning'>&lt; 5%</td></tr><tr><td><b>Critical</b></td>"
-        "<td class='critical'>&lt; 0%</td></tr></table><table class='summary'>"
-        "<tr><th colspan=2>SPEC Test Summary</th></tr><tr><td><b>Fail</b></td>"
-        f"<td>{len(fail)}</td></tr><tr><td><b>Pass</b></td><td>{num_pass}</td>"
-        f"</tr><tr><td><b>Total</b></td><td>{result_num}</td></tr></table><h3>"
-        "Click each row to check the waveform of the worst mearsurement shown "
-        "<u>at the end of report</u>. </h3></div>"
+        "</div>\n\t</div>\n\t<div class='right'>\n\t\t<table class='summary'>"
+        "\n\t\t\t<tr>\n\t\t\t\t<th colspan=2>Margin Threshold</th>\n\t\t\t</tr>"
+        "\n\t\t\t<tr>\n\t\t\t\t<td><b>Warning</b></td>\n\t\t\t\t<td class='warning'>"
+        "&lt; 5%</td>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td><b>Critical</b></td>"
+        "\n\t\t\t\t<td class='critical'>&lt; 0%</td>\n\t\t\t</tr>\n\t\t</table>"
+        "\n\t\t<table class='summary'>\n\t\t\t<tr>\n\t\t\t\t<th colspan=2>SPEC "
+        "Test Summary</th>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td><b>Fail</b></td>"
+        f"\n\t\t\t\t<td>{len(fail)}</td>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td>"
+        f"<b>Pass</b></td>\n\t\t\t\t<td>{num_pass}</td>\n\t\t\t</tr>\n\t\t\t<tr>"
+        f"\n\t\t\t\t<td><b>Total</b></td>\n\t\t\t\t<td>{result_num}</td>\n\t\t\t</tr>"
+        "\n\t\t</table>\n\t\t<h3>Click each row to check the waveform of the worst "
+        "mearsurement shown <u>at the end of report</u>. </h3>\n\t</div>"
     )
 
     for f in field:
@@ -545,20 +548,20 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       else:
         column5.append(values[f + "_min"])
 
-    report.write("<table><tr>")
+    report.write("\n\t<table>\n\t\t<tr>")
     for i in range(len(headers[0])):
       column = headers[0][i]
       if i in [0, 1, 2, 6]:
-        report.write(f"<th rowspan='2'>{column}</th>")
+        report.write(f"\n\t\t\t<th rowspan='2'>{column}</th>")
       elif i in [3, 5]:
-        report.write(f"<th colspan='2'>{column}</th>")
+        report.write(f"\n\t\t\t<th colspan='2'>{column}</th>")
       else:
-        report.write(f"<th colspan='3'>{column}</th>")
-    report.write("</tr><tr>")
+        report.write(f"\n\t\t\t<th colspan='3'>{column}</th>")
+    report.write("\n\t\t</tr>\n\t\t<tr>")
 
     for i in range(len(headers[1])):
       column = headers[1][i]
-      report.write(f"<th>{column}</th>")
+      report.write(f"\n\t\t\t<th>{column}</th>")
 
     for i in range(len(field)):
       f = field[i]
@@ -574,40 +577,42 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
             column8.pop(0), column9.pop(0), column10.pop(0)
         ]
 
-      report.write(f"<tr id='{field[i]}' onclick='ShowSVG(\"{field[i]}\")'>")
+      report.write(
+          f"\n\t\t<tr id='{field[i]}' onclick='ShowSVG(\"{field[i]}\")'>"
+      )
       for j in range(len(row)-1):
         column = row[j]
         if i in [0, 2, 4, 6, 12, 14, 16, 18, 20, 22, 24] and j in range(5):
-          report.write(f"<td rowspan='2'>{column}</td>")
+          report.write(f"\n\t\t\t<td rowspan='2'>{column}</td>")
         else:
-          report.write(f"<td>{column}</td>\n")
+          report.write(f"\n\t\t\t<td>{column}</td>")
 
       last_column = row[-1]
       if last_column == "Fail":
-        report.write(f"<td class='critical'>{last_column}</td>")
+        report.write(f"\n\t\t\t<td class='critical'>{last_column}</td>")
 
       elif last_column == "Pass":
         if float(row[-2]) < 5:
-          report.write(f"<td class='warning'>{last_column}</td>")
+          report.write(f"\n\t\t\t<td class='warning'>{last_column}</td>")
         else:
-          report.write(f"<td>{last_column}</td>")
+          report.write(f"\n\t\t\t<td>{last_column}</td>")
 
       elif last_column == "N/A" and i >= 4:
-        report.write(f"<td class='NA'>{last_column.strip()}</td>")
+        report.write(f"\n\t\t\t<td class='NA'>{last_column.strip()}</td>")
       elif i == 0:
-        report.write("<td rowspan='4'>Only for Informative</td>")
-      report.write("</tr>")
+        report.write("\n\t\t\t<td rowspan='4'>Only for Informative</td>")
+      report.write("\n\t\t</tr>")
 
     report.write(
-        "</table><div><b>[1]</b> (V<sub>H</sub>-0.7V<sub>DD</sub>) / V<sub>DD</sub></div>"
-        "<div><b>[2]</b> (0.3V<sub>DD</sub>-V<sub>L</sub>) / V<sub>DD</sub></div>"
-        "<div><b>[3]</b> t<sub>VD;DAT</sub> and t<sub>VD;ACK</sub> are included in t<sub>HD;DAT</sub></div>"
+        "\n\t</table>\n\t<div><b>[1]</b> (V<sub>H</sub>-0.7V<sub>DD</sub>) / V<sub>DD</sub></div>"
+        "\n\t<div><b>[2]</b> (0.3V<sub>DD</sub>-V<sub>L</sub>) / V<sub>DD</sub></div>"
+        "\n\t<div><b>[3]</b> t<sub>VD;DAT</sub> and t<sub>VD;ACK</sub> are included in t<sub>HD;DAT</sub></div>"
     )
 
     for plot in svg_fields.values():
       report.write(plot)
 
-    report.write("</body>\n</html>")
+    report.write("\n</body>\n</html>")
 
   return report_path
 
