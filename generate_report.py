@@ -296,7 +296,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       color: #111;
       height: 40px;
     }
-    .summary td{
+    .summary td {
       width: 50%;
     }
     .warning {
