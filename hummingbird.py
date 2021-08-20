@@ -418,8 +418,8 @@ class HummingBird(AnalogMeasurer):
       measure_min = measure_field.get(field + "_min")
       if measure_max[1] < new_result[1]:
         measure_max[:] = new_result.copy()
-      if measure_min[1] > new_result[1]:
-        measure_max[:] = new_result.copy()
+      elif measure_min[1] > new_result[1]:
+        measure_min[:] = new_result.copy()
     else:
       measure_field[field + "_max"] = new_result.copy()
       measure_field[field + "_min"] = new_result.copy()
