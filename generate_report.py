@@ -262,11 +262,11 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .left {
       float: left;
-      width:50%;
+      width: 50%;
     }
     .right {
       float: left;
-      width:50%;
+      width: 50%;
     }
     .column_left {
       float: left;
@@ -275,12 +275,13 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       text-align: center;
       font-weight: 600;
       font-size: 21px;
+      margin: 0;
     }
     .column_right {
       float: left;
-      width:90%;
+      width: 90%;
       padding: 0;
-      margin-bottom: 0px;
+      margin: 0;
     }
     .summary {
       margin: 0 0 20px 10px;
@@ -292,10 +293,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .summary th {
       background-color: #aaa;
-      color:  #111;
+      color: #111;
       height: 40px;
     }
-    .summary td{
+    .summary td {
       width: 50%;
     }
     .warning {
@@ -391,7 +392,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     )
     report.write(time_now.strftime("%Y-%m-%d %H:%M:%S"))
     report.write(
-        f"</p><p><b>File Save Path:</b>&nbsp;&nbsp;{report_path}</p>"
+        f"</p><p><b>File Save Path:</b>&nbsp;{report_path}</p>"
         f"<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
         f"<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
         f"<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
