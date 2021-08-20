@@ -35,8 +35,8 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   data_max = int(data_max * 50)
   data_min = int(data_min * 50)
   height = (data_max - data_min) * 2
-  rate = min(max(len(data) // 1000, 1), 180)
-  width = len(data) // rate * 5
+  rate = min(max(len(data) // 5000, 1), 100)
+  width = len(data) // rate
 
   if field == "scl_show":
     svgfile += (
@@ -47,7 +47,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   elif field == "sda_show":
     svgfile += (
-        f"\n\t<div id='{field}'>\n\t\t<div class='column_left margin'>SDA capture</div>"
+        f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SDA capture</div>"
         "\n\t\t<div class='column_right margin'>"
         f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
     )
@@ -69,7 +69,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           "\n\t\t<div class='column_left'>SCL<br>zoom in</div>"
           "\n\t\t<div class='column_right'>"
       )
-    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2}'>"
 
     # Red Rect to Mark the Measure Area
 
@@ -77,21 +77,21 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy1 = ((xx1 - math.floor(xx1)) *
            (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
            data[math.floor(xx1)])
-    yy1 = (data_max - int(yy1 * 50)) * 2 + 160
-    xx1 = xx1 // rate * 5
+    yy1 = (data_max - int(yy1 * 50)) * 1.4 + 120
+    xx1 = xx1 // rate
 
     xx2 = rect_idx
     yy2 = ((xx2 - math.floor(xx2)) *
            (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
            data[math.floor(xx2)])
-    yy2 = (data_max - int(yy2 * 50)) * 2 + 160
-    xx2 = xx2 // rate * 5
+    yy2 = (data_max - int(yy2 * 50)) * 1.4 + 120
+    xx2 = xx2 // rate
 
-    y30p = (data_max - int(vs * 0.3 * 50)) * 2 + 160
-    y70p = (data_max - int(vs * 0.7 * 50)) * 2 + 160
+    y30p = (data_max - int(vs * 0.3 * 50)) * 1.4 + 120
+    y70p = (data_max - int(vs * 0.7 * 50)) * 1.4 + 120
 
-    rect_width = max(rect_width // rate * 5, 7)
-    rect_x = rect_idx // rate * 5 - rect_width
+    rect_width = max(rect_width // rate, 7)
+    rect_x = rect_idx // rate - rect_width
     svgfile += (
         f"\n\t\t\t\t<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
     )
@@ -101,9 +101,9 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
@@ -119,9 +119,9 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
@@ -137,9 +137,9 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
       if abs(yy2 - y30p) < abs(yy2 - y70p):
         svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
       else:
@@ -148,11 +148,16 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   # Data Polyline
 
   points = ""
-  for i in range(0, len(data), rate):
-    points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 160} "
-  svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
-  if field != "scl_show" and field != "sda_show":
-    svgfile += "\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
+  if field == "scl_show" or field == "sda_show":
+    for i in range(0, len(data), rate):
+      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 2 + 120} "
+    svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
+  else:
+    for i in range(0, len(data), rate):
+      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 1.4 + 120} "
+    svgfile += (
+        f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
+    )
 
   return svgfile
 
@@ -326,12 +331,12 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .line {
       stroke: black;
-      stroke-width: 5;
+      stroke-width: 4;
     }
     .plotline {
       fill: none;
       stroke: black;
-      stroke-width: 6;
+      stroke-width: 5;
     }
     .arrowline {
       stroke: #555;
@@ -344,7 +349,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .text {
       fill: black;
-      font-size: 50px;
+      font-size: 35px;
     }"""
 
     script = """\n\t<script>

@@ -412,16 +412,17 @@ class HummingBird(AnalogMeasurer):
     Returns:
       measure_field: measure value for each SPEC parameter
     """
+    
     measure_max = measure_field.get(field + "_max")
     if measure_max:
       measure_min = measure_field.get(field + "_min")
       if measure_max[1] < new_result[1]:
-        measure_max[:] = new_result
-      elif measure_min[1] > new_result[1]:
-        measure_min[:] = new_result
+        measure_max[:] = new_result.copy()
+      if measure_min[1] > new_result[1]:
+        measure_max[:] = new_result.copy()
     else:
-      measure_field[field + "_max"] = new_result
-      measure_field[field + "_min"] = new_result
+      measure_field[field + "_max"] = new_result.copy()
+      measure_field[field + "_min"] = new_result.copy()
 
     return measure_field
 
@@ -566,11 +567,12 @@ class HummingBird(AnalogMeasurer):
         else:  # rising edge
           sda.low_end = sda.i_30p
           if v_low_sda and sda.low_start:
-            measure_field = self.add_measurement(
-                measure_field, "v_low_sda",
-                [i - interpolation, np.median(v_low_sda),
-                 sda.low_end - sda.low_start]
-            )
+            if sda.low_start < scl.low_start:
+              measure_field = self.add_measurement(
+                  measure_field, "v_low_sda",
+                  [i - interpolation, np.median(v_low_sda),
+                   sda.low_end - sda.low_start]
+              )
             v_low_sda = []
           sda.state = None
 
@@ -590,11 +592,12 @@ class HummingBird(AnalogMeasurer):
         else:  # falling edge
           sda.high_end = sda.i_70p
           if v_high_sda and sda.high_start:
-            measure_field = self.add_measurement(
-                measure_field, "v_high_sda",
-                [i - interpolation, np.median(v_high_sda),
-                 sda.high_end - sda.high_start]
-            )
+            if sda.high_start < scl.low_start:  # ignore spike occur during SCL low
+              measure_field = self.add_measurement(
+                  measure_field, "v_high_sda",
+                  [i - interpolation, np.median(v_high_sda),
+                   sda.high_end - sda.high_start]
+              )
             v_high_sda = []
           sda.state = None
 
@@ -632,7 +635,7 @@ class HummingBird(AnalogMeasurer):
               [i - interpolation, sda.low_end - scl.low_start]
           )
 
-      # Check at 8 fr setup time since data_start_flag increment at high
+      # Check at 8 for setup time since data_start_flag increment at high
 
       if ((sda.state == 0) and scl.low_end is not None and
           (math.ceil(scl.low_end) == i) and
@@ -995,7 +998,7 @@ class HummingBird(AnalogMeasurer):
     svg_fields["sda"] = SVGFile(
         self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show", vs
     )
-    rate = min(max(len(self.scl_data) // 1000, 1), 180)
+    rate = min(max(len(self.scl_data) // 5000, 1), 100)
 
     fields1 = [
         "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
@@ -1005,18 +1008,18 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1000, len(self.scl_data) - 2000))
+            max(0, min(idx - 1500, len(self.scl_data) - 3000))
         )
-        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1000, 2000)))
+        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1500, 3000)))
         svg_fields[f] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
             idx - start_idx, svgwidth[f], f, vs
         )
-        rect_width = max(svgwidth[f] // rate * 5, 40)
-        rect_x = idx // rate * 5 - rect_width
+        rect_width = max(svgwidth[f] // rate, 40)
+        rect_x = idx // rate - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
-            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y=50 width={rect_width} height=90% class='rect hide'/>"
             f"\n\t\t\t\t<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
             f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
@@ -1029,18 +1032,18 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1000, len(self.sda_data) - 2000))
+            max(0, min(idx - 1500, len(self.sda_data) - 3000))
         )
-        end_idx = math.ceil(min(len(self.sda_data), max(idx + 1000, 2000)))
+        end_idx = math.ceil(min(len(self.sda_data), max(idx + 1500, 3000)))
         svg_fields[f] = SVGFile(
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f, vs
         )
-        rect_width = max(svgwidth[f] // rate * 5, 40)
-        rect_x = idx // rate * 5 - rect_width
+        rect_width = max(svgwidth[f] // rate, 40)
+        rect_x = idx // rate - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["sda"] += (
-            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
+            f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y=50 width={rect_width} height=90% class='rect hide'/>"
             f"\n\t\t\t\t<line id='{f}_line' x1={mid_x} y1=0 x2={mid_x} y2=60 class='arrowline'/>"
             f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
@@ -1056,9 +1059,9 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1000, len(self.scl_data) - 2000))
+            max(0, min(idx - 1500, len(self.scl_data) - 3000))
         )
-        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1000, 2000)))
+        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1500, 3000)))
         svg_fields[f + "_scl"] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
             idx - start_idx, svgwidth[f], f + "_scl", vs
@@ -1067,8 +1070,8 @@ class HummingBird(AnalogMeasurer):
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f + "_sda", vs
         )
-        rect_width = max(svgwidth[f] // rate * 5, 40)
-        rect_x = idx // rate * 5 - rect_width
+        rect_width = max(svgwidth[f] // rate, 40)
+        rect_x = idx // rate- rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
             f"\n\t\t\t\t<rect id='{f}_scl_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
