@@ -1044,7 +1044,10 @@ class HummingBird(AnalogMeasurer):
     svg_fields["sda"] = SVGFile(
         self.sda_data, sda_v_max, sda_v_min, None, None, "sda_show", vs
     )
-    rate = min(max(len(self.scl_data) // 5000, 1), 100)
+    resolution = min(max(len(self.scl_data) // 2000, 1), 150)
+    upscale_x = 3000 / len(self.scl_data) * resolution
+    upscale_y = 40 * 5 // (scl_v_max - scl_v_min)
+    part = max(int(2e-5 // self.sampling_period), 500)
 
     fields1 = [
         "v_low_scl", "v_high_scl", "t_rise_scl", "t_fall_scl", "t_low",
@@ -1054,15 +1057,15 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1500, len(self.scl_data) - 3000))
+            max(0, min(idx - part, len(self.scl_data) - part * 2))
         )
-        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1500, 3000)))
+        end_idx = math.ceil(min(len(self.scl_data), max(idx + part, part * 2)))
         svg_fields[f] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
             idx - start_idx, svgwidth[f], f, vs
         )
-        rect_width = max(svgwidth[f] // rate, 40)
-        rect_x = idx // rate - rect_width
+        rect_width = max(svgwidth[f] // resolution * upscale_x, 40)
+        rect_x = idx // resolution * upscale_x - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
             f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y=50 width={rect_width} height=90% class='rect hide'/>"
@@ -1070,19 +1073,19 @@ class HummingBird(AnalogMeasurer):
             f"\n\t\t\t\t<polygon id='{f}_poly' points='{mid_x - 50} 50, {mid_x} 110, {mid_x + 50} 50' class='arrow'/>"
         )
 
+    y30p = (scl_v_max - 0.3 * vs) * upscale_y + 120
+    y70p = (scl_v_max - 0.7 * vs) * upscale_y + 120
+    svg_fields["scl"] += (
+        f"\n\t\t\t\t<text x=0 y={y30p} class='text2 runt_scl hide'>30 %</text>"
+        f"\n\t\t\t\t<text x=0 y={y70p} class='text2 runt_scl hide'>70 %</text>"
+        f"\n\t\t\t\t<line x1=0 y1={y30p} x2=100% y2={y30p} class='line2 runt_scl hide'/>"
+        f"\n\t\t\t\t<line x1=0 y1={y70p} x2=100% y2={y70p} class='line2 runt_scl hide'/>"
+    )
     if result.get("runt_scl"):
-      y30p = (int(scl_v_max * 50) - int(0.3 * vs * 50)) * 2.5 + 120
-      y70p = (int(scl_v_max * 50) - int(0.7 * vs * 50)) * 2.5 + 120
-      svg_fields["scl"] += (
-          f"\n\t\t\t\t<text x=0 y={y30p} class='text2 runt_scl hide'>30 %</text>"
-          f"\n\t\t\t\t<text x=0 y={y70p} class='text2 runt_scl hide'>70 %</text>"
-          f"\n\t\t\t\t<line x1=0 y1={y30p} x2=100% y2={y30p} class='line2 runt_scl hide'/>"
-          f"\n\t\t\t\t<line x1=0 y1={y70p} x2=100% y2={y70p} class='line2 runt_scl hide'/>"
-      )
       for runt in result["runt_scl"]:
         idx = runt[0]
-        rect_width = max(runt[1] // rate, 40)
-        rect_x = idx // rate - rect_width
+        rect_width = max(runt[1] // resolution * upscale_x, 40)
+        rect_x = idx // resolution * upscale_x - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
             f"\n\t\t\t\t<rect class='runt_scl rect hide' x={rect_x} y=50 width={rect_width} height=90% />"
@@ -1096,15 +1099,15 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1500, len(self.sda_data) - 3000))
+            max(0, min(idx - part, len(self.sda_data) - part * 2))
         )
-        end_idx = math.ceil(min(len(self.sda_data), max(idx + 1500, 3000)))
+        end_idx = math.ceil(min(len(self.sda_data), max(idx + part, part * 2)))
         svg_fields[f] = SVGFile(
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f, vs
         )
-        rect_width = max(svgwidth[f] // rate, 40)
-        rect_x = idx // rate - rect_width
+        rect_width = max(svgwidth[f] // resolution * upscale_x, 40)
+        rect_x = idx // resolution * upscale_x - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["sda"] += (
             f"\n\t\t\t\t<rect id='{f}_rect' x={rect_x} y=50 width={rect_width} height=90% class='rect hide'/>"
@@ -1123,9 +1126,9 @@ class HummingBird(AnalogMeasurer):
       if result.get(f + "_idx"):
         idx = result[f + "_idx"]
         start_idx = math.floor(
-            max(0, min(idx - 1500, len(self.scl_data) - 3000))
+            max(0, min(idx - part, len(self.scl_data) - part * 2))
         )
-        end_idx = math.ceil(min(len(self.scl_data), max(idx + 1500, 3000)))
+        end_idx = math.ceil(min(len(self.scl_data), max(idx + part, part * 2)))
         svg_fields[f + "_scl"] = SVGFile(
             self.scl_data[start_idx:end_idx], scl_v_max, scl_v_min,
             idx - start_idx, svgwidth[f], f + "_scl", vs
@@ -1134,8 +1137,8 @@ class HummingBird(AnalogMeasurer):
             self.sda_data[start_idx:end_idx], sda_v_max, sda_v_min,
             idx - start_idx, svgwidth[f], f + "_sda", vs
         )
-        rect_width = max(svgwidth[f] // rate, 40)
-        rect_x = idx // rate- rect_width
+        rect_width = max(svgwidth[f] // resolution * upscale_x, 40)
+        rect_x = idx // resolution * upscale_x - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["scl"] += (
             f"\n\t\t\t\t<rect id='{f}_scl_rect' x={rect_x} y='0' width={rect_width} height=100% class='rect hide'/>"
@@ -1147,19 +1150,19 @@ class HummingBird(AnalogMeasurer):
             f" class='rect hide'/>"
         )
 
+    y30p = (sda_v_max - 0.3 * vs) * upscale_y + 120
+    y70p = (sda_v_max - 0.7 * vs) * upscale_y + 120
+    svg_fields["sda"] += (
+        f"\n\t\t\t\t<text x=0 y={y30p} class='text2 hide runt_sda'>30 %</text>"
+        f"\n\t\t\t\t<text x=0 y={y70p} class='text2 hide runt_sda'>70 %</text>"
+        f"\n\t\t\t\t<line x1=0 y1={y30p} x2=100% y2={y30p} class='line2 runt_sda hide'/>"
+        f"\n\t\t\t\t<line x1=0 y1={y70p} x2=100% y2={y70p} class='line2 runt_sda hide'/>"
+    )
     if result.get("runt_sda"):
-      y30p = (int(sda_v_max * 50) - int(0.3 * vs * 50)) * 2.5 + 120
-      y70p = (int(sda_v_max * 50) - int(0.7 * vs * 50)) * 2.5 + 120
-      svg_fields["sda"] += (
-          f"\n\t\t\t\t<text x=0 y={y30p} class='text2 hide runt_sda'>30 %</text>"
-          f"\n\t\t\t\t<text x=0 y={y70p} class='text2 hide runt_sda'>70 %</text>"
-          f"\n\t\t\t\t<line x1=0 y1={y30p} x2=100% y2={y30p} class='line2 runt_sda hide'/>"
-          f"\n\t\t\t\t<line x1=0 y1={y70p} x2=100% y2={y70p} class='line2 runt_sda hide'/>"
-      )
       for runt in result["runt_sda"]:
         idx = runt[0]
-        rect_width = max(runt[1] // rate, 40)
-        rect_x = idx // rate - rect_width
+        rect_width = max(runt[1] // resolution * upscale_x, 40)
+        rect_x = idx // resolution * upscale_x - rect_width
         mid_x = rect_x + rect_width // 2
         svg_fields["sda"] += (
             f"\n\t\t\t\t<rect class='runt_sda rect hide' x={rect_x} y=50 width={rect_width} height=90% />"

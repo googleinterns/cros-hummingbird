@@ -32,24 +32,24 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     SVG plot to write in the html report.
   """
   svgfile = ""
-  data_max = int(data_max * 50)
-  data_min = int(data_min * 50)
-  height = (data_max - data_min) * 2
-  rate = min(max(len(data) // 5000, 1), 150)
-  width = len(data) // rate
+  upscale_y = 40 * 5 // (data_max - data_min)
+  resolution = min(max(len(data) // 2000, 1), 150)
+  upscale_x = 3000 / len(data) * resolution
+  width = len(data) * upscale_x / resolution
+  height = (data_max - data_min) * upscale_y + 120
 
   if field == "scl_show":
     svgfile += (
         f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SCL capture</div>"
         "\n\t\t<div class='column_right'>"
-        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.5 + 120}'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
     )
 
   elif field == "sda_show":
     svgfile += (
         f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SDA capture</div>"
         "\n\t\t<div class='column_right margin'>"
-        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.5 + 120}'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
     )
 
   else:
@@ -69,7 +69,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           "\n\t\t<div class='column_left'>SCL<br>zoom in</div>"
           "\n\t\t<div class='column_right'>"
       )
-    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2}'>"
+    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
 
     # Red Rect to Mark the Measure Area
 
@@ -77,23 +77,23 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy1 = ((xx1 - math.floor(xx1)) *
            (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
            data[math.floor(xx1)])
-    yy1 = (data_max - int(yy1 * 50)) * 1.4 + 120
-    xx1 = xx1 // rate
+    yy1 = (data_max - yy1) * upscale_y + 60
+    xx1 = xx1 // resolution * upscale_x
 
     xx2 = rect_idx
     yy2 = ((xx2 - math.floor(xx2)) *
            (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
            data[math.floor(xx2)])
-    yy2 = (data_max - int(yy2 * 50)) * 1.4 + 120
-    xx2 = xx2 // rate
+    yy2 = (data_max - yy2) * upscale_y + 60
+    xx2 = xx2 // resolution * upscale_x
 
-    y30p = (data_max - int(vs * 0.3 * 50)) * 1.4 + 120
-    y70p = (data_max - int(vs * 0.7 * 50)) * 1.4 + 120
+    y30p = (data_max - vs * 0.3) * upscale_y + 60
+    y70p = (data_max - vs * 0.7) * upscale_y + 60
 
-    rect_width = max(rect_width // rate, 7)
-    rect_x = rect_idx // rate - rect_width
+    rect_width = max(rect_width // resolution * upscale_x, 7)
+    rect_x = rect_idx // resolution * upscale_x - rect_width
     svgfile += (
-        f"\n\t\t\t\t<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
+        f"\n\t\t\t\t<rect x={rect_x} y=1% width={rect_width} height=95% class='rect'/>"
     )
     if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
         ("HD_STA" in field and "sda" in field)):
@@ -149,12 +149,12 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
 
   points = ""
   if field == "scl_show" or field == "sda_show":
-    for i in range(0, len(data), rate):
-      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 2.5 + 120} "
+    for i in range(0, len(data), resolution):
+      points += f"{i // resolution * upscale_x},{int((data_max - data[i]) * upscale_y + 120)} "
     svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
   else:
-    for i in range(0, len(data), rate):
-      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 1.4 + 120} "
+    for i in range(0, len(data), resolution):
+      points += f"{i // resolution * upscale_x},{int((data_max - data[i]) * upscale_y + 60)} "
     svgfile += (
         f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
     )
@@ -293,8 +293,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .column_left {
       float: left;
-      width: 10%;
-      padding: 30px 0;
+      width: 9%;
+      padding: 30px 0 0 0;
       text-align: center;
       font-weight: 600;
       font-size: 21px;
@@ -352,21 +352,12 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .line2 {
       stroke: gray;
-      stroke-width: 6;
-    }
-    .line2 {
-      stroke: gray;
-      stroke-width: 6;
+      stroke-width: 3;
     }
     .plotline {
       fill: none;
       stroke: black;
       stroke-width: 4;
-    }
-    #scl_show .plotline, #sda_show .plotline {
-      fill: none;
-      stroke: black;
-      stroke-width: 7;
     }
     .arrowline {
       stroke: #555;
@@ -383,7 +374,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .text2 {
       fill: black;
-      font-size: 50px;
+      font-size: 20px;
     }"""
 
     script = """\n\t<script>
@@ -431,7 +422,26 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
        })
        scl_elems.forEach(function(itm, idx, arr) {
           itm.style.display = "inline";
-       })      
+       })
+       let fields = [
+            "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
+            "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
+            "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
+            "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
+            "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
+            "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+            "t_SU_STA", "t_SU_STO", "t_BUF"
+        ];
+        fields.forEach(function(item, index, array) {
+            ele1 = document.getElementById(item);
+            if(ele1 != null){ele1.style.background = "white";}
+            selector1 = `#${item}_hide, #${item}_scl_hide, #${item}_sda_hide, `;
+            selector2 = `#${item}_rect, #${item}_scl_rect, #${item}_sda_rect, #${item}_line, #${item}_poly`;
+            elems = document.querySelectorAll(selector1 + selector2);
+            elems.forEach(function(itm, idx, arr) {
+                itm.style.display = "none";
+            })
+         })
      }
      function HideRunt() {
        scl_elems = document.querySelectorAll(".runt_scl");
