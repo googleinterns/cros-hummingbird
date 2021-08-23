@@ -150,7 +150,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   points = ""
   if field == "scl_show" or field == "sda_show":
     for i in range(0, len(data), rate):
-      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 2 + 120} "
+      points += f"{i // rate},{(data_max - int(data[i] * 50)) * 2.5 + 120} "
     svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
   else:
     for i in range(0, len(data), rate):
