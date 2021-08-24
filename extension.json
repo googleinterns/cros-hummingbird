@@ -12,7 +12,7 @@
         "spec": {
           "name": "spec check result (Pass/Fail)",
           "notation": "FAILs",
-          "units": "(Refer to ./output_reports/report.html for more details.)"
+          "units": "(Refer to /tmp/output_reports/report.html for more details.)"
         },
         "v_high_scl_worst": {
           "name": "SCL voltage at the HIGH level",

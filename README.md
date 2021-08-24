@@ -4,8 +4,8 @@ An extension that check whether the captured analog measurements meet I2C SPEC l
 
 SPEC reference:	[NXP UM10204](https://www.nxp.com/docs/en/user-guide/UM10204.pdf)
 
-A report html file would be generated at under local directory,
-where HummingBird is downloaded: ./HummingBird/output_reports/report.html
+A report html file would be generated at under tmp folder,
+for example, /tmp/output_reports/report_20210824150025.html
 
 Capture both SCL and SDA data so that all SPEC limitation could be tested.
 
