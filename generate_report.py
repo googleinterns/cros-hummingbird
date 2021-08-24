@@ -32,24 +32,24 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     SVG plot to write in the html report.
   """
   svgfile = ""
-  data_max = int(data_max * 50)
-  data_min = int(data_min * 50)
-  height = (data_max - data_min) * 2
-  rate = min(max(len(data) // 1000, 1), 180)
-  width = len(data) // rate * 5
+  upscale_y = 40 * 5 // (data_max - data_min)
+  resolution = min(max(len(data) // 2000, 1), 150)
+  upscale_x = 3000 / len(data) * resolution
+  width = len(data) * upscale_x / resolution
+  height = (data_max - data_min) * upscale_y + 120
 
   if field == "scl_show":
     svgfile += (
         f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SCL capture</div>"
         "\n\t\t<div class='column_right'>"
-        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
     )
 
   elif field == "sda_show":
     svgfile += (
-        f"\n\t<div id='{field}'>\n\t\t<div class='column_left margin'>SDA capture</div>"
+        f"\n\t<div id='{field}'>\n\t\t<div class='column_left'>SDA capture</div>"
         "\n\t\t<div class='column_right margin'>"
-        f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+        f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
     )
 
   else:
@@ -69,7 +69,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
           "\n\t\t<div class='column_left'>SCL<br>zoom in</div>"
           "\n\t\t<div class='column_right'>"
       )
-    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height * 1.2 + 120}'>"
+    svgfile += f"\n\t\t\t<svg viewBox='0 0 {width} {height}'>"
 
     # Red Rect to Mark the Measure Area
 
@@ -77,37 +77,37 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     yy1 = ((xx1 - math.floor(xx1)) *
            (data[math.ceil(xx1)] - data[math.floor(xx1)]) +
            data[math.floor(xx1)])
-    yy1 = (data_max - int(yy1 * 50)) * 2 + 160
-    xx1 = xx1 // rate * 5
+    yy1 = (data_max - yy1) * upscale_y + 60
+    xx1 = xx1 // resolution * upscale_x
 
     xx2 = rect_idx
     yy2 = ((xx2 - math.floor(xx2)) *
            (data[math.ceil(xx2)] - data[math.floor(xx2)]) +
            data[math.floor(xx2)])
-    yy2 = (data_max - int(yy2 * 50)) * 2 + 160
-    xx2 = xx2 // rate * 5
+    yy2 = (data_max - yy2) * upscale_y + 60
+    xx2 = xx2 // resolution * upscale_x
 
-    y30p = (data_max - int(vs * 0.3 * 50)) * 2 + 160
-    y70p = (data_max - int(vs * 0.7 * 50)) * 2 + 160
+    y30p = (data_max - vs * 0.3) * upscale_y + 60
+    y70p = (data_max - vs * 0.7) * upscale_y + 60
 
-    rect_width = max(rect_width // rate * 5, 7)
-    rect_x = rect_idx // rate * 5 - rect_width
+    rect_width = max(rect_width // resolution * upscale_x, 7)
+    rect_x = rect_idx // resolution * upscale_x - rect_width
     svgfile += (
-        f"\n\t\t\t\t<rect x={rect_x} y=100 width={rect_width} height=90% class='rect'/>"
+        f"\n\t\t\t\t<rect x={rect_x} y=1% width={rect_width} height=95% class='rect'/>"
     )
     if ((("SU_STA" in field or "SU_STO" in field) and "scl" in field) or
         ("HD_STA" in field and "sda" in field)):
       svgfile += (
-          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 15} y1={yy1} x2={xx1 + 15} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
     elif ((("SU_STA" in field or "SU_STO" in field) and "sda" in field) or
           ("HD_STA" in field and "scl" in field)):
       svgfile += (
-          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 15} y1={yy2} x2={xx2 + 15} y2={yy2} class='line'/>"
       )
       if abs(yy2 - y30p) < abs(yy2 - y70p):
         svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
@@ -116,16 +116,16 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
     elif (("SU" in field and "sda" in field) or
           ("HD" in field and "scl" in field)):
       svgfile += (
-          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 15} y1={yy1} x2={xx1 + 15} y2={yy1} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
     elif (("SU" in field and "scl" in field) or
           ("HD" in field and "sda" in field)):
       svgfile += (
-          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 15} y1={yy2} x2={xx2 + 15} y2={yy2} class='line'/>"
       )
       if abs(yy2 - y30p) < abs(yy2 - y70p):
         svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
@@ -133,13 +133,13 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
         svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>70 %</text>"
     elif not ("BUF" in field and "scl" in field):
       svgfile += (
-          f"\n\t\t\t\t<line x1={xx1 - 20} y1={yy1} x2={xx1 + 20} y2={yy1} class='line'/>"
-          f"\n\t\t\t\t<line x1={xx2 - 20} y1={yy2} x2={xx2 + 20} y2={yy2} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx1 - 15} y1={yy1} x2={xx1 + 15} y2={yy1} class='line'/>"
+          f"\n\t\t\t\t<line x1={xx2 - 15} y1={yy2} x2={xx2 + 15} y2={yy2} class='line'/>"
       )
       if abs(yy1 - y30p) < abs(yy1 - y70p):
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>30 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>30 %</text>"
       else:
-        svgfile += f"\n\t\t\t\t<text x={xx1 - 140} y={yy1} class='text'>70 %</text>"
+        svgfile += f"\n\t\t\t\t<text x={xx1 - 110} y={yy1} class='text'>70 %</text>"
       if abs(yy2 - y30p) < abs(yy2 - y70p):
         svgfile += f"\n\t\t\t\t<text x={xx2 + 30} y={yy2} class='text'>30 %</text>"
       else:
@@ -148,11 +148,16 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   # Data Polyline
 
   points = ""
-  for i in range(0, len(data), rate):
-    points += f"{i // rate * 5},{(data_max - int(data[i] * 50)) * 2 + 160} "
-  svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
-  if field != "scl_show" and field != "sda_show":
-    svgfile += "\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
+  if field == "scl_show" or field == "sda_show":
+    for i in range(0, len(data), resolution):
+      points += f"{i // resolution * upscale_x},{int((data_max - data[i]) * upscale_y + 120)} "
+    svgfile += f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>"
+  else:
+    for i in range(0, len(data), resolution):
+      points += f"{i // resolution * upscale_x},{int((data_max - data[i]) * upscale_y + 60)} "
+    svgfile += (
+        f"\n\t\t\t\t<polyline points='{points}' class='plotline'/>\n\t\t\t</svg>\n\t\t</div>\n\t</div>"
+    )
 
   return svgfile
 
@@ -184,6 +189,12 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
   """
   result_num = len(fail) + num_pass
   fails = ", ".join(list(fail.keys()))
+
+  runt_num = 0
+  if result.get("runt_scl"):
+    runt_num += len(result["runt_scl"])
+  if result.get("runt_sda"):
+    runt_num += len(result["runt_sda"])
 
   field = [
       "v_low_sda", "v_low_scl", "v_high_sda", "v_high_scl", "v_nl_sda",
@@ -261,6 +272,17 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       margin: 1% auto;
       width: 100%;
     }
+    button {
+      background-color: #e7e7e7;
+      border: none;
+      display: inline-block;
+      padding: 5px 10px;
+      margin-left: 10px;
+    }
+    button:hover {
+      background-color: #aaa;
+      color: white;
+    }
     .left {
       float: left;
       width: 50%;
@@ -271,8 +293,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .column_left {
       float: left;
-      width: 10%;
-      padding: 30px 0;
+      width: 9%;
+      padding: 30px 0 0 0;
       text-align: center;
       font-weight: 600;
       font-size: 21px;
@@ -326,12 +348,16 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .line {
       stroke: black;
-      stroke-width: 5;
+      stroke-width: 4;
+    }
+    .line2 {
+      stroke: gray;
+      stroke-width: 3;
     }
     .plotline {
       fill: none;
       stroke: black;
-      stroke-width: 6;
+      stroke-width: 4;
     }
     .arrowline {
       stroke: #555;
@@ -344,12 +370,17 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .text {
       fill: black;
-      font-size: 50px;
+      font-size: 35px;
+    }
+    .text2 {
+      fill: black;
+      font-size: 20px;
     }"""
 
     script = """\n\t<script>
     function ShowSVG(x) {
       console.log(x);
+      HideRunt();
       ele_self = document.getElementById(x);
       selector1 = `#${x}_hide, #${x}_scl_hide, #${x}_sda_hide, `;
       selector2 = `#${x}_rect, #${x}_scl_rect, #${x}_sda_rect, #${x}_line, #${x}_poly`;
@@ -381,6 +412,46 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
             })
           }
        })
+     }
+     function ShowRunt(x) {
+       console.log(x);
+       scl_elems = document.querySelectorAll(".runt_scl");
+       sda_elems = document.querySelectorAll(".runt_sda");
+       sda_elems.forEach(function(itm, idx, arr) {
+          itm.style.display = "inline";
+       })
+       scl_elems.forEach(function(itm, idx, arr) {
+          itm.style.display = "inline";
+       })
+       let fields = [
+            "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
+            "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
+            "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
+            "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
+            "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
+            "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+            "t_SU_STA", "t_SU_STO", "t_BUF"
+        ];
+        fields.forEach(function(item, index, array) {
+            ele1 = document.getElementById(item);
+            if(ele1 != null){ele1.style.background = "white";}
+            selector1 = `#${item}_hide, #${item}_scl_hide, #${item}_sda_hide, `;
+            selector2 = `#${item}_rect, #${item}_scl_rect, #${item}_sda_rect, #${item}_line, #${item}_poly`;
+            elems = document.querySelectorAll(selector1 + selector2);
+            elems.forEach(function(itm, idx, arr) {
+                itm.style.display = "none";
+            })
+         })
+     }
+     function HideRunt() {
+       scl_elems = document.querySelectorAll(".runt_scl");
+       sda_elems = document.querySelectorAll(".runt_sda");
+       sda_elems.forEach(function(itm, idx, arr) {
+          itm.style.display = "none";
+       })
+       scl_elems.forEach(function(itm, idx, arr) {
+          itm.style.display = "none";
+       })      
      }\n\t</script>"""
     report.write(style)
     report.write("\n\t</style>\n</head>\n<body>")
@@ -407,7 +478,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     report.write("\n\t\t<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;")
     report.write(" ".join(addr))
     report.write(
-        "</div>\n\t</div>\n\t<div class='right'>\n\t\t<table class='summary'>"
+        f"</div>\n\t\t<p>Detect {runt_num} runt pattern<button onclick=ShowRunt()>"
+        "Show Runt</button><button onclick=HideRunt()>Hide Runt</button></p>"
+        "\n\t</div>\n\t<div class='right'>\n\t\t<table class='summary'>"
         "\n\t\t\t<tr>\n\t\t\t\t<th colspan=2>Margin Threshold</th>\n\t\t\t</tr>"
         "\n\t\t\t<tr>\n\t\t\t\t<td><b>Warning</b></td>\n\t\t\t\t<td class='warning'>"
         "&lt; 5%</td>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td><b>Critical</b></td>"
@@ -418,7 +491,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         f"<b>Pass</b></td>\n\t\t\t\t<td>{num_pass}</td>\n\t\t\t</tr>\n\t\t\t<tr>"
         f"\n\t\t\t\t<td><b>Total</b></td>\n\t\t\t\t<td>{result_num}</td>\n\t\t\t</tr>"
         "\n\t\t</table>\n\t\t<h3>Click each row to check the waveform of the worst "
-        "mearsurement shown <u>at the end of report</u>. </h3>\n\t</div>"
+        "mearsurement shown <u>at the end of report</u>.</h3>\n\t</div>"
     )
 
     for f in field:
