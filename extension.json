@@ -1,9 +1,9 @@
 { 
-  "name": "HummingBird",
+  "name": "HummingBird: I2C SPEC testing",
   "apiVersion": "1.0.0",
   "author": "Peggy Lin",
   "version": "1.0.0",
-  "description": "I2C SPEC testing",
+  "description": "Automated Electrical Test for I2C Signal",
   "extensions": {
     "HummingBird": {
       "type": "AnalogMeasurement",
