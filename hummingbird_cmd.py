@@ -5,22 +5,13 @@ run on Saleae Logic2 Software. Supporting main function
 would be running I2C electrical test on capture data.
 
 """
-import datetime
+import csv
 import math
 import os
-import subprocess
-import tempfile
 
 from generate_report import OutputReportFile
 from generate_report import SVGFile
 import numpy as np
-from saleae.data import GraphTime
-from saleae.range_measurements import AnalogMeasurer
-
-
-LOCAL_PATH = os.path.join(tempfile.gettempdir(), "output_reports")
-if not os.path.exists(LOCAL_PATH):
-  os.makedirs(LOCAL_PATH)
 
 
 class Logic():
@@ -54,16 +45,12 @@ class Logic():
     self.last_high_start = None
 
 
-class HummingBird(AnalogMeasurer):
+class HummingBird():
   """Main measurement module.
 
   This is the main module called by Saleae measurement API.
 
   Attributes:
-    samples: analog data samples,
-             in the format of (time_index, voltage_value)
-    start_time: captured data start time
-    sampling_period: time between two samples
     stop_flag: STOP pattern detected,
                raise to 1 until START pattern
     start_flag: START pattern detected,
@@ -71,23 +58,23 @@ class HummingBird(AnalogMeasurer):
     restart_flag: RESTART pattern detected,
                   remain 1 until STOP pattern
     data_start_flag: from the first SCL clock cycle after START
-                     or RESTART pattern, remain 1 for one package
+                     or RESTART pattern, remain 1 for one packet
                      (9 SCL clock cycles)
+    first_packet: the first packet after START or RESTART pattern
+    csv_data_path: data csv file to measure
+    save_folder: report save folder
 
-    scl_data_path: SCL data save path
-    scl_data: SCL data
-    scl_start_time: SCL data start time
-    scl_sampling_period: SCL data sampling period
+    sampling_period: SCL data sampling period
     f_clk: SCL clock frequency
-    sda_data_path: SDA data save path
+    time: time data
+    data: include SCL and SDA data in unknown order
+    scl_data: SCL data
     sda_data: SDA data
-    sda_start_time: SDA data start time
-    sda_sampling_period: SDA data sampling period
-
-    requested_measurements: measurement required by extension.json
+    v_30p: threshold reference point for state LOW
+    v_70p: threshold reference point for state HIGH
   """
 
-  def __init__(self, requested_measurements):
+  def __init__(self, csv_data_path, save_folder):
     """Initialization.
 
     Initialize your measurement extension here
@@ -95,21 +82,10 @@ class HummingBird(AnalogMeasurer):
     all pre-measurement initialization are here
 
     Args:
-      requested_measurements: measurement required by extension.json
+      csv_data_path: csv file to measure
+      save_folder: output report path
     """
-    supported_measurements = [
-        "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "v_nl_scl",
-        "v_nh_scl", "v_nl_sda", "v_nh_sda", "t_rise_sda", "t_rise_scl",
-        "t_fall_sda", "t_fall_scl", "t_low", "t_high", "f_clk",
-        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-        "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev", "t_HD_STA_S",
-        "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
-    ]
-    super().__init__(requested_measurements)
-    self.samples = []
-    self.start_time = None
-    self.sampling_period = None
+    super().__init__()
 
     self.stop_flag = 1
     self.start_flag = 0
@@ -117,76 +93,23 @@ class HummingBird(AnalogMeasurer):
     self.data_start_flag = 0
     self.first_packet = 0
 
-    self.scl_data_path = os.path.join(LOCAL_PATH, "SCL.txt")
-    self.scl_data = None
-    self.scl_start_time = None
-    self.scl_sampling_period = None
-    self.f_clk = None
-    if os.path.isfile(self.scl_data_path):
-      with open(self.scl_data_path, "r") as f:
-        head = [next(f) for x in range(3)]
-        scl_start_time = head[0].split("\n")[0]
-        [dt, subms] = scl_start_time.split("\t")
-        dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
-        ms, us = int(subms[0:3]), int(subms[3:6])
-        ns, ps = int(subms[6:9]), int(subms[9:12])
-        self.scl_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
-                                        nanosecond=ns, picosecond=ps)
-        self.scl_sampling_period = float(head[1].split("\n")[0])
-        self.f_clk = float(head[2].split("\n")[0])
-        self.scl_data = np.loadtxt(self.scl_data_path, delimiter=",",
-                                   skiprows=3)
-      os.remove(self.scl_data_path)
-
-    self.sda_data_path = os.path.join(LOCAL_PATH, "SDA.txt")
-    self.sda_data = None
-    self.sda_start_time = None
-    self.sda_sampling_period = None
-    if os.path.isfile(self.sda_data_path):
-      with open(self.sda_data_path, "r") as f:
-        head = [next(f) for x in range(2)]
-        sda_start_time = head[0].split("\n")[0]
-        [dt, subms] = sda_start_time.split("\t")
-        dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
-        ms, us = int(subms[0:3]), int(subms[3:6])
-        ns, ps = int(subms[6:9]), int(subms[9:12])
-        self.sda_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
-                                        nanosecond=ns, picosecond=ps)
-        self.sda_sampling_period = float(head[1].split("\n")[0])
-        self.sda_data = np.loadtxt(self.sda_data_path, delimiter=",",
-                                   skiprows=2)
-      os.remove(self.sda_data_path)
+    self.csv_data_path = csv_data_path
+    self.save_folder = save_folder
+    self.time = None
+    self.data = None
+    if os.path.isfile(self.csv_data_path):
+      with open(self.csv_data_path, "r") as f:
+        data_iter = csv.reader(f, delimiter=",")
+        next(data_iter)  # skip header
+        data_list = list(data_iter)
+        time = [d[0] for d in data_list]
+        self.time = np.asarray(time, dtype=np.float64)
+        data = [d[1:] for d in data_list]
+        self.data = np.asarray(data, dtype=np.float32)
 
     self.v_30p = None
     self.v_70p = None
-
-    self.requested_measurements = {}
-    for m in supported_measurements:
-      if m + "_worst" in requested_measurements:
-        self.requested_measurements[m + "_worst"] = True
-      else:
-        self.requested_measurements[m + "_worst"] = False
-    if "spec" in requested_measurements:
-      self.requested_measurements["spec"] = True
-
-  def process_data(self, data):
-    """Process data.
-
-    This method will be called one or more times per measurement
-    Iterate over data to get Voltage values, one per sample
-
-    Args:
-      data:
-        data.samples is a numpy array of float32 voltages
-        data.sample_count is the number of samples
-    """
-    self.samples.append(data.samples)
-    if self.sampling_period is None:
-      self.sampling_period = (
-          ((data.end_time - data.start_time) / data.sample_count).__float__())
-
-    if self.start_time is None:
-      self.start_time = data.start_time
+    self.sampling_period = self.time[1] - self.time[0]
 
   def max_of_filtered_arr(self, data, threshold=1):
     """Return the maximum value of the filtered array.
@@ -241,68 +164,148 @@ class HummingBird(AnalogMeasurer):
 
     return vs
 
-  def determine_datatype(self, data):
+  def determine_datatype(self, data1, data2):
     """Determine Data Type.
 
     Read the first five cycles to determine data type
-    Consider different sampling rate by multiply sampling_period
-    Avoid extreme value which might cause by clk stretching
-    Calculate the difference percentage of t_max and t_min
-    SCL should be stable and the difference should be small
+    Consider different sampling rate use direct time info
+    SCL should has larger frequency than SDA
 
     Constrain: should capture at least five SCL clk cycles
 
     Args:
-      data: numpy array of voltages values
-
-    Returns:
-      datatype: current capture is SCL or SDA
+      data1: numpy array of voltages values, unknown type
+      data2: numpy array of voltages values, unknown type
     """
-    datatype = None
-    dataline = Logic()
-    clk_dataline = []
-    v = data[0]
-    for i in range(1, len(data)):
-      n = data[i]
-      if ((v >= self.v_30p and n < self.v_30p) or
-          (v <= self.v_30p and n > self.v_30p)):
-        dataline.i_30p = i
-        if dataline.i_70p is not None:  # falling edge
-          dataline.low_start = dataline.i_30p
-          dataline.i_30p = dataline.i_70p = None
+    dataline1 = Logic()
+    dataline2 = Logic()
+    clk_dataline1 = []
+    clk_dataline2 = []
+    v1 = data1[0]
+    v2 = data2[0]
+    first_data_start = None
+    for i in range(1, len(data1)):
+      n1 = data1[i]
+      n2 = data2[i]
+      t = self.time[i]
+      if ((v1 >= self.v_30p and n1 < self.v_30p) or
+          (v1 <= self.v_30p and n1 > self.v_30p)):
+        dataline1.i_30p = t
+        if dataline1.i_70p is not None:  # falling edge
+          dataline1.low_start = dataline1.i_30p
+          dataline1.i_30p = dataline1.i_70p = None
 
-          if dataline.last_low_start is not None:
-            clk_dataline.append(dataline.low_start - dataline.last_low_start)
-          dataline.last_low_start = dataline.low_start
+          if dataline1.last_low_start is not None:
+            clk_dataline1.append(dataline1.low_start - dataline1.last_low_start)
+          elif first_data_start is None:
+            first_data_start = i
+          dataline1.last_low_start = dataline1.low_start
 
-      if ((v >= self.v_70p and n < self.v_70p) or
-          (v <= self.v_70p and n > self.v_70p)):
-        dataline.i_70p = i
-        if dataline.i_30p is not None:  # rising edge
-          dataline.high_start = dataline.i_70p
-          dataline.i_30p = dataline.i_70p = None
+      if ((v1 >= self.v_70p and n1 < self.v_70p) or
+          (v1 <= self.v_70p and n1 > self.v_70p)):
+        dataline1.i_70p = t
+        if dataline1.i_30p is not None:  # rising edge
+          dataline1.high_start = dataline1.i_70p
+          dataline1.i_30p = dataline1.i_70p = None
 
-          if dataline.last_high_start is not None:
-            clk_dataline.append(dataline.high_start - dataline.last_high_start)
-          dataline.last_high_start = dataline.high_start
-      v = n
-      if len(clk_dataline) >= 8:
+          if dataline1.last_high_start is not None:
+            clk_dataline1.append(
+                dataline1.high_start - dataline1.last_high_start
+            )
+          dataline1.last_high_start = dataline1.high_start
+
+      if ((v2 >= self.v_30p and n2 < self.v_30p) or
+          (v2 <= self.v_30p and n2 > self.v_30p)):
+        dataline2.i_30p = t
+        if dataline2.i_70p is not None:  # falling edge
+          dataline2.low_start = dataline2.i_30p
+          dataline2.i_30p = dataline2.i_70p = None
+
+          if dataline2.last_low_start is not None:
+            clk_dataline2.append(
+                dataline2.low_start - dataline2.last_low_start
+            )
+          elif first_data_start is None:
+            first_data_start = i
+          dataline2.last_low_start = dataline2.low_start
+
+      if ((v2 >= self.v_70p and n2 < self.v_70p) or
+          (v2 <= self.v_70p and n2 > self.v_70p)):
+        dataline2.i_70p = t
+        if dataline2.i_30p is not None:  # rising edge
+          dataline2.high_start = dataline2.i_70p
+          dataline2.i_30p = dataline2.i_70p = None
+
+          if dataline2.last_high_start is not None:
+            clk_dataline2.append(
+                dataline2.high_start - dataline2.last_high_start
+            )
+          dataline2.last_high_start = dataline2.high_start
+      v1 = n1
+      v2 = n2
+      if len(clk_dataline1) >= 8 or len(clk_dataline2) >= 8:
         break
 
-    if len(clk_dataline) > 7:
-      clk_dataline = np.sort(clk_dataline)[:-2]
-      t_clk = clk_dataline[-1]  # max period time
-      t_clk2 = clk_dataline[0]  # min period time
-      stable = (t_clk - t_clk2) / t_clk2 * 100
+    # Trim from the first edge to the last edge
+    # first_data_start: the first edge of data
+    # first_data_end: the last edge of data
 
-      if stable < 20:
-        datatype = "SCL"
-        self.f_clk = 1 / (t_clk2 * self.sampling_period)
+    first_data_end = None
+    dataline1 = Logic()
+    dataline2 = Logic()
+    v1 = data1[-1]
+    v2 = data2[-1]
+    for i in range(len(data1)-2, 0, -1):
+      n1 = data1[i]
+      n2 = data2[i]
+      if ((v1 >= self.v_30p and n1 < self.v_30p) or
+          (v1 <= self.v_30p and n1 > self.v_30p)):
+        dataline1.i_30p = i
+        if dataline1.i_70p is not None:  # falling edge
+          dataline1.i_30p = dataline1.i_70p = None
 
-    if datatype is None:
-      datatype = "SDA"
+          if dataline1.last_low_start is None and first_data_end is None:
+            first_data_end = i
+            break
 
-    return datatype
+      if ((v1 >= self.v_70p and n1 < self.v_70p) or
+          (v1 <= self.v_70p and n1 > self.v_70p)):
+        dataline1.i_70p = t
+        if dataline1.i_30p is not None:  # rising edge
+          dataline1.i_30p = dataline1.i_70p = None
+
+      if ((v2 >= self.v_30p and n2 < self.v_30p) or
+          (v2 <= self.v_30p and n2 > self.v_30p)):
+        dataline2.i_30p = t
+        if dataline2.i_70p is not None:  # falling edge
+          dataline2.i_30p = dataline2.i_70p = None
+
+          if dataline2.last_low_start is None and first_data_end is None:
+            first_data_end = i
+            break
+
+      if ((v2 >= self.v_70p and n2 < self.v_70p) or
+          (v2 <= self.v_70p and n2 > self.v_70p)):
+        dataline2.i_70p = t
+        if dataline2.i_30p is not None:  # rising edge
+          dataline2.i_30p = dataline2.i_70p = None
+      v1 = n1
+      v2 = n2
+
+    first_data_start = int(first_data_start * 0.8)
+    first_data_end = int(first_data_end * 0.8 + len(data1) * 0.2)
+    if len(clk_dataline1) > len(clk_dataline2):
+      # data1 = SCL, data2 = SDA
+      self.f_clk = 1 / np.min(clk_dataline1)
+      self.scl_data = data1[first_data_start:first_data_end]
+      self.sda_data = data2[first_data_start:first_data_end]
+      print("Detect column order:\tSCL, SDA")
+    else:
+      # data1 = SDA, data2 = SCL
+      self.f_clk = 1 / np.min(clk_dataline2)
+      self.scl_data = data2[first_data_start:first_data_end]
+      self.sda_data = data1[first_data_start:first_data_end]
+      print("Detect column order:\tSDA, SCL")
 
   def determine_operation_mode(self):
     """Determine Operation Mode.
@@ -321,87 +324,6 @@ class HummingBird(AnalogMeasurer):
       mode = "Fast Mode Plus"
 
     return mode
-
-  def process_1st_2nd_capture(self, datatype, data):
-    """Process 1st or 2nd Capture.
-
-    If 1st, write data.
-    If 2nd, solve datatime time zone when convert datatime
-    to graphtime
-
-    Args:
-      datatype: SCL or SDA
-      data: numpy array of voltages values
-    """
-    if datatype == "SCL":
-      self.scl_data = data
-      self.scl_sampling_period = self.sampling_period
-      if self.sda_data is None:
-        with open(self.scl_data_path, "w") as f:
-          f.write(self.start_time.as_datetime().__str__().split(".")[0] + "\t" +
-                  self.start_time.__str__().split(".")[1] + "\n")
-          f.write(self.sampling_period.__str__() + "\n")
-          f.write(self.f_clk.__str__() + "\n")
-          np.savetxt(f, data)
-        self.scl_start_time = self.start_time
-      else:
-        dt = self.start_time.as_datetime().__str__().split(".")[0]
-        dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
-        subms = self.start_time.__str__().split(".")[1]
-        ms, us = int(subms[0:3]), int(subms[3:6])
-        ns, ps = int(subms[6:9]), int(subms[9:12])
-        self.scl_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
-                                        nanosecond=ns, picosecond=ps)
-
-    elif datatype == "SDA":
-      self.sda_data = data
-      self.sda_sampling_period = self.sampling_period
-      if self.scl_data is None:
-        with open(self.sda_data_path, "w") as f:
-          f.write(self.start_time.as_datetime().__str__().split(".")[0] + "\t" +
-                  self.start_time.__str__().split(".")[1] + "\n")
-          f.write(self.sampling_period.__str__() + "\n")
-          np.savetxt(f, data)
-        self.sda_start_time = self.start_time
-      else:
-        dt = self.start_time.as_datetime().__str__().split(".")[0]
-        dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
-        subms = self.start_time.__str__().split(".")[1]
-        ms, us = int(subms[0:3]), int(subms[3:6])
-        ns, ps = int(subms[6:9]), int(subms[9:12])
-        self.sda_start_time = GraphTime(dt, millisecond=ms, microsecond=us,
-                                        nanosecond=ns, picosecond=ps)
-
-  def match_start_end_time(self):
-    """Match start time and end time of SDA and SCL.
-
-    Find overlap region of the two captures
-
-    Raises:
-      Exception: SDA and SCL data time range is not overlapped
-    """
-    if self.scl_start_time > self.sda_start_time:
-      delta_s = (self.scl_start_time - self.sda_start_time).__float__()
-      delta_s = round(delta_s / self.sda_sampling_period)
-      self.sda_data = self.sda_data[delta_s:]
-    else:
-      delta_s = (self.sda_start_time - self.scl_start_time).__float__()
-      delta_s = round(delta_s / self.scl_sampling_period)
-      self.scl_data = self.scl_data[delta_s:]
-
-    if len(self.scl_data) < len(self.sda_data):
-      delta_e = len(self.sda_data) - len(self.scl_data)
-      if delta_e != 0:
-        self.sda_data = self.sda_data[:-delta_e]
-    else:
-      delta_e = len(self.scl_data) - len(self.sda_data)
-      if delta_e != 0:
-        self.scl_data = self.scl_data[:-delta_e]
-
-    if (not self.sda_data.any()) or (not self.scl_data.any()):
-      raise Exception(
-          "SDA data range and SCL data range needs to be overlapped!"
-          "Please capture again.")
 
   def add_measurement(self, measure_field, field, new_result):
     """Compare with exist measurement.
@@ -813,7 +735,7 @@ class HummingBird(AnalogMeasurer):
         "t_SU_STO": 2.6e-7, "t_BUF": 5e-7
     }
 
-    # Check only voltage SPEC constrain if no operation mode provided
+    # Check only voltage SPEC constrain if unknown operation mode
 
     spec_limit = {
         "v_nh": 0.2, "v_nl": 0.1, "v_low": 0.3 * vs, "v_high": 0.7 * vs
@@ -850,8 +772,7 @@ class HummingBird(AnalogMeasurer):
       ff = "_".join(f.split("_")[:-1])
       measure_max = measure_field.get(f + "_max")
       measure_min = measure_field.get(f + "_min")
-      if (self.requested_measurements[f + "_worst"] and
-          measure_max and measure_min):
+      if measure_max and measure_min:
         values[f + "_max"] = measure_max[1]
         values[f + "_min"] = measure_min[1]
         limit = spec_limit[ff]
@@ -873,7 +794,7 @@ class HummingBird(AnalogMeasurer):
       ff2 = "_".join(f.split("_")[:-1])
       value_max = values.get(ff + "_max")
       value_min = values.get(ff + "_min")
-      if self.requested_measurements[f + "_worst"] and value_max and value_min:
+      if value_max and value_min:
         if "nh" in f:
           maxx = (value_max - self.v_70p) / vs
           minn = (value_min - self.v_70p) / vs
@@ -895,11 +816,10 @@ class HummingBird(AnalogMeasurer):
 
     measure_max = measure_field.get("T_clk_max")
     measure_min = measure_field.get("T_clk_min")
-    if (self.requested_measurements["f_clk_worst"] and
-        measure_max and measure_min):
-      t_clk_min = measure_min[1] * self.scl_sampling_period
+    if measure_max and measure_min:
+      t_clk_min = measure_min[1] * self.sampling_period
       maxx = int(1 / t_clk_min)
-      t_clk_max = measure_max[1] * self.scl_sampling_period
+      t_clk_max = measure_max[1] * self.sampling_period
       minn = int(1 / t_clk_max)
       values["f_clk_max"] = maxx
       values["f_clk_min"] = minn
@@ -912,14 +832,13 @@ class HummingBird(AnalogMeasurer):
       else:
         result["f_clk"] = 1
       result["f_clk_margin"] = limit - maxx
-      result["f_clk_percent"] = limit - maxx / limit * 100
+      result["f_clk_percent"] = (limit - maxx) / limit * 100
 
     fields3 = ["t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl"]
     for f in fields3:
       measure_max = measure_field.get(f + "_max")
       measure_min = measure_field.get(f + "_min")
-      if (self.requested_measurements[f + "_worst"] and
-          measure_max and measure_min):
+      if measure_max and measure_min:
         maxx = measure_max[1] * self.sampling_period
         minn = measure_min[1] * self.sampling_period
         values[f + "_max"] = maxx
@@ -955,16 +874,15 @@ class HummingBird(AnalogMeasurer):
     for f in fields4:
       measure_max = measure_field.get(f + "_max")
       measure_min = measure_field.get(f + "_min")
-      if (self.requested_measurements[f + "_worst"] and
-          measure_max and measure_min):
+      if measure_max and measure_min:
         if f in ["t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF"]:
           ff = f
         elif f in ["t_HD_STA_S", "t_HD_STA_Sr"]:
           ff = "_".join(f.split("_")[:-1])
         else:
           ff = "_".join(f.split("_")[:-2])
-        maxx = measure_max[1] * self.scl_sampling_period
-        minn = measure_min[1] * self.scl_sampling_period
+        maxx = measure_max[1] * self.sampling_period
+        minn = measure_min[1] * self.sampling_period
         values[f + "_max"] = maxx
         values[f + "_min"] = minn
         values[f + "_worst"] = minn
@@ -985,11 +903,10 @@ class HummingBird(AnalogMeasurer):
     for f in fields5:
       measure_max = measure_field.get(f + "_max")
       measure_min = measure_field.get(f + "_min")
-      if (self.requested_measurements[f + "_worst"] and
-          measure_max and measure_min):
+      if measure_max and measure_min:
         ff = "_".join(f.split("_")[:-2])
-        maxx = measure_max[1] * self.scl_sampling_period
-        minn = measure_min[1] * self.scl_sampling_period
+        maxx = measure_max[1] * self.sampling_period
+        minn = measure_min[1] * self.sampling_period
         values[f + "_max"] = maxx
         values[f + "_min"] = minn
         limit_max = spec_limit.get(ff)
@@ -1182,63 +1099,59 @@ class HummingBird(AnalogMeasurer):
     measurement values.
 
     Returns:
-      values: dictionary of request_measurements values
+      report_path: output testing report
     """
-    data = np.concatenate(self.samples)
+    data1 = self.data[:, 0]
+    data2 = self.data[:, 1]
 
-    vs = self.determine_working_voltage(data)
-    datatype = self.determine_datatype(data)
-    mode = None
-    if self.f_clk is not None:  # Read from 1st SCL capture
-      mode = self.determine_operation_mode()
-
-    self.process_1st_2nd_capture(datatype, data)
-    if self.sda_data is not None and self.scl_data is not None:
-      self.match_start_end_time()
-    else:
-      return {"spec": 0}
+    print("------------------------------------")
+    vs = self.determine_working_voltage(data1)
+    print("Working Voltage: ", vs, "V")
+    self.determine_datatype(data1, data2)
+    mode = self.determine_operation_mode()
+    print("Operation Mode: ", mode)
+    print("------------------------------------")
 
     ################### Measure Each Parameter ############################
 
-    supported_measurements = [
-        "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
-        "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-        "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
-        "t_SU_STO", "t_BUF"
-    ]
-    if any(k.split("_worst")[0] in supported_measurements
-           for k in self.requested_measurements):
-      measure_field, addr_list = self.measure_both_scl_sda()
+    measure_field, addr_list = self.measure_both_scl_sda()
+    print("Complete measurement")
 
     ################### Check SPEC Limitation ##############################
 
     spec_limit = self.get_spec_limitation(mode, vs)
     values, result, svgwidth = self.check_spec(spec_limit, measure_field, vs)
+    print("Complete check spec")
+    print("------------------------------------")
 
     fail = {}
-    if self.requested_measurements["spec"]:
-      fail = {param: result for (param, result) in result.items()
-              if ((result == 1) and ("_margin" not in param) and
+    fail = {param: result for (param, result) in result.items()
+            if ((result == 1) and ("_margin" not in param) and
+                ("_percent" not in param) and ("_idx" not in param))}
+    passes = {param: result for (param, result) in result.items()
+              if ((result == 0) and ("_margin" not in param) and
                   ("_percent" not in param) and ("_idx" not in param))}
-      passes = {param: result for (param, result) in result.items()
-                if ((result == 0) and ("_margin" not in param) and
-                    ("_percent" not in param) and ("_idx" not in param))}
-      num_pass = len(passes)
-      values["spec"] = len(fail)
+    num_pass = len(passes)
+    values["spec"] = len(fail)
+    print("Pass: ", num_pass)
+    print("Fail: ", len(fail))
 
     ############### Generate and Show Report ##############
 
     uni_addr = list(set(addr_list))
     uni_addr = [f"0x{int(addr, 2):02X}" for addr in uni_addr]
+    print("Detect Addr: ", uni_addr)
 
     sampling_rate = round(1 / self.sampling_period * 1e-6)
+    print("Sampling_rate: ", sampling_rate, "MS/s")
+    print("------------------------------------")
+
     svg_fields = self.get_svg_fields(result, svgwidth, vs)
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
-        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate
+        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
+        self.save_folder
     )
-    subprocess.run(["open", report_path], check=True)
 
-    return values
+    return report_path
+

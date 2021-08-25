@@ -168,7 +168,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      result: typing.Dict[str, np.float64],
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
-                     addr: typing.List[str], sampling_rate: int):
+                     addr: typing.List[str], sampling_rate: int,
+                     save_folder=LOCAL_PATH):
   """Write HTML report.
 
   Args:
@@ -184,6 +185,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     svg_fields: SVG plot dictionary for each SPEC field
     addr: device address included in the capture
     sampling_rate: sampling rate of the analog data
+    save_folder: optional input when using CMD
 
   Returns:
     report_path: save path for current report.
@@ -213,7 +215,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
   ]
   time_now = datetime.datetime.now()
   report_path = os.path.join(
-      LOCAL_PATH, f"report_{time_now.strftime('%Y%m%d%H%M%S')}.html"
+      save_folder, f"report_{time_now.strftime('%Y%m%d%H%M%S')}.html"
   )
   with open(report_path, "w") as report:
     report.write(
