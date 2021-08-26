@@ -6,11 +6,12 @@ import datetime
 import math
 import os
 import typing
+import tempfile
 
 import numpy as np
 
 
-LOCAL_PATH = os.path.join(os.path.dirname(__file__), "output_reports")
+LOCAL_PATH = os.path.join(tempfile.gettempdir(), "output_reports")
 if not os.path.exists(LOCAL_PATH):
   os.makedirs(LOCAL_PATH)
 

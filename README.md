@@ -1,16 +1,16 @@
-# HummingBird Automated Electrical Test for I2C Signal
+# HummingBird: Automated Electrical Test for I2C Signal
   
-An extension that check whether the captured analog measurements meet I2C SPEC limitation.
+HummingBird is an extension that check whether the captured analog measurements meet 
+I2C SPEC limitation.
 
 SPEC reference:	[NXP UM10204](https://www.nxp.com/docs/en/user-guide/UM10204.pdf)
 
-A report html file would be generated at under local directory,
-where HummingBird is downloaded: ./HummingBird/output_reports/report.html
+A report html file would be generated at under tmp folder,
+for example, /tmp/output_reports/report_20210824150025.html
 
-Capture both SCL and SDA data so that all SPEC limitation could be tested.
-
-The captured data should include START or RESTART pattern.
-
+Capture <b>both SCL and SDA data</b> so that all SPEC limitation could be tested. 
+Either order would be fine. The test would only run after both SCL and SDA data are 
+provided. Note that only the overlapped region of the two datalines would be analyzed. 
 
 
 Support SPEC | definition
@@ -29,11 +29,28 @@ t_SU_STA | set-up time for a repeated START condition
 t_SU_STO | set-up time for STOP condition
 t_BUF | bus free time between a STOP and START condition
 
+
+## Requirements
+- Supporting working voltage: 1.8V / 3.3V / 5V
+- Supporting operation mode: Standard Mode / Fast Mode / Fast Mode Plus
+- Both SCL and SDA datas should be provided and overlapped for at least 5 SCL clk cycles
+- The captured should include START or RESTART pattern
+
+
 ## Instructions
 1. Install this extension by clicking "Install"
-2. Add a measurement by clicking on the "Timing Markers & Measurements" on the right, then the Measurements "+" icon.
+2. Collect SDA and SCL analog data by Saleae Logic2 software
+3. Capture the desired data range of both SCL and SDA datalines to go under test by clicking 
+on the "Timing Markers & Measurements" on the right, then the Measurements "+" icon, or 
+keyboard shortcut "Ctrl + G".
 
 	![Adding a Measurement](figures/add_measurement.png)
 
-3. Drag the measurement selection window over your recorded data.
-4. Both SDA and SCL data should be captured (both order would be fine) to check all SPEC limitation.
+4. Drag the measurement selection window over your recorded data in the desired range. Note that 
+the more data captured, the more computation time is needed.
+5. Both SDA and SCL data should be captured (both order would be fine) to check all SPEC 
+limitation. Only the overlapped region of the two datalines would be analyzed. 
+6. Test report would be generated and shown after both SCL and SDA data is captured. Each operation 
+parameters predicted would be specified on the report. 
+7. Go further to run tests on a different range of dataline!
+
