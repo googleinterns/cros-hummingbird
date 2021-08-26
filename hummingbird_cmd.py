@@ -99,7 +99,7 @@ class HummingBird():
     self.data = None
     if os.path.isfile(self.csv_data_path):
       with open(self.csv_data_path, "r") as f:
-        data_iter = csv.reader(f, delimiter=",")
+        data_iter = csv.reader(f)
         next(data_iter)  # skip header
         data_list = list(data_iter)
         time = [d[0] for d in data_list]
@@ -127,7 +127,7 @@ class HummingBird():
       maxx: the maxium voltage of the filtered data
     """
     length = round(1e-7 / self.sampling_period)
-    segments = len(data) // length
+    segments = min(len(data) // length, 2000)
     maxx = 0
     for i in range(segments):
       arr = data[i * length:(i + 1) * length]
