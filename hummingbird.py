@@ -824,7 +824,7 @@ class HummingBird():
     fields2 = ["v_nh_scl", "v_nl_scl", "v_nh_sda", "v_nl_sda"]
     for f in fields2:
       ff = f.replace("nh", "high").replace("nl", "low")
-      ff2 = "_".join(f.split("_")[:-1])
+      ff2 = f[:4]
       value_max = values.get(ff + "_max")
       value_min = values.get(ff + "_min")
       if value_max and value_min:
@@ -867,7 +867,11 @@ class HummingBird():
       result["f_clk_margin"] = limit - maxx
       result["f_clk_percent"] = (limit - maxx) / limit * 100
 
-    fields3 = ["t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl"]
+    fields3 = [
+        "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl",
+        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
+        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev"
+    ]
     for f in fields3:
       measure_max = measure_field.get(f + "_max")
       measure_min = measure_field.get(f + "_min")
@@ -876,27 +880,36 @@ class HummingBird():
         minn = measure_min[1] * self.sampling_period
         values[f + "_max"] = maxx
         values[f + "_min"] = minn
-        ff = "_".join(f.split("_")[:-1])
-        limit_max = spec_limit.get(ff + "_max")
-        if limit_max:
+        if "HD" in f:
+          ff = f[:8]
+          limit_max = spec_limit.get(ff)
+          if not limit_max:
+            limit_max = np.inf
+          limit_min = 0
+        else:
+          ff = f[:6]
+          limit_max = spec_limit.get(ff + "_max")
           limit_min = spec_limit.get(ff + "_min")
           if not limit_min:
             limit_min = np.NINF
-          if maxx <= limit_max and minn >= limit_min:
-            result[f] = 0
+        if maxx <= limit_max and minn >= limit_min:
+          result[f] = 0
+        else:
+          result[f] = 1
+        if limit_max - maxx < minn - limit_min:
+          values[f + "_worst"] = maxx
+          result[f + "_idx"] = measure_max[0]
+          svgwidth[f] = measure_max[1]
+          result[f + "_margin"] = limit_max - maxx
+          result[f + "_percent"] = (limit_max - maxx) / limit_max * 100
+        else:
+          values[f + "_worst"] = minn
+          result[f + "_idx"] = measure_min[0]
+          svgwidth[f] = measure_min[1]
+          result[f + "_margin"] = minn - limit_min
+          if "HD" in f and limit_max != np.inf:
+            result[f + "_percent"] = (minn - limit_min) / limit_max * 100
           else:
-            result[f] = 1
-          if limit_max - maxx < minn - limit_min:
-            values[f + "_worst"] = maxx
-            result[f + "_idx"] = measure_max[0]
-            svgwidth[f] = measure_max[1]
-            result[f + "_margin"] = limit_max - maxx
-            result[f + "_percent"] = (limit_max - maxx) / limit_max * 100
-          else:
-            values[f + "_worst"] = minn
-            result[f + "_idx"] = measure_min[0]
-            svgwidth[f] = measure_min[1]
-            result[f + "_margin"] = minn - limit_min
             result[f + "_percent"] = (minn - limit_min) / limit_min * 100
 
     fields4 = [
@@ -910,10 +923,8 @@ class HummingBird():
       if measure_max and measure_min:
         if f in ["t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF"]:
           ff = f
-        elif f in ["t_HD_STA_S", "t_HD_STA_Sr"]:
-          ff = "_".join(f.split("_")[:-1])
         else:
-          ff = "_".join(f.split("_")[:-2])
+          ff = f[:8]
         maxx = measure_max[1] * self.sampling_period
         minn = measure_min[1] * self.sampling_period
         values[f + "_max"] = maxx
@@ -928,38 +939,6 @@ class HummingBird():
           result[f] = 1
         result[f + "_margin"] = minn - limit
         result[f + "_percent"] = (minn - limit) / limit * 100
-
-    fields5 = [
-        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host", "t_HD_DAT_rising_dev",
-        "t_HD_DAT_falling_dev"
-    ]
-    for f in fields5:
-      measure_max = measure_field.get(f + "_max")
-      measure_min = measure_field.get(f + "_min")
-      if measure_max and measure_min:
-        ff = "_".join(f.split("_")[:-2])
-        maxx = measure_max[1] * self.sampling_period
-        minn = measure_min[1] * self.sampling_period
-        values[f + "_max"] = maxx
-        values[f + "_min"] = minn
-        limit_max = spec_limit.get(ff)
-        if not limit_max:
-          limit_max = np.inf
-        if minn >= 0 and maxx <= limit_max:
-          result[f] = 0
-        else:
-          result[f] = 1
-        if minn - 0 < limit_max - maxx:
-          values[f + "_worst"] = minn
-          result[f + "_idx"] = measure_min[0]
-          svgwidth[f] = measure_min[1]
-          result[f + "_margin"] = minn - 0
-        else:
-          values[f + "_worst"] = maxx
-          result[f + "_idx"] = measure_max[0]
-          svgwidth[f] = measure_max[1]
-          result[f + "_margin"] = limit_max - maxx
-        result[f + "_percent"] = result[f + "_margin"] / limit_max * 100
 
     fields6 = ["runt_scl", "runt_sda"]
     for f in fields6:
@@ -1201,10 +1180,14 @@ class HummingBird():
     print("------------------------------------")
 
     svg_fields = self.get_svg_fields(result, svgwidth, vs)
+    waveform_info = [
+        self.scl_rising_edge, self.scl_falling_edge, self.sda_rising_edge,
+        self.sda_falling_edge, self.start_num, self.restart_num, self.stop_num
+    ]
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
-        self.save_folder
+        waveform_info, self.save_folder
     )
 
     return report_path

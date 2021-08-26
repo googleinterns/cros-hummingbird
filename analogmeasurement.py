@@ -369,10 +369,14 @@ class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
 
     sampling_rate = round(1 / self.sampling_period * 1e-6)
     svg_fields = self.get_svg_fields(result, svgwidth, vs)
+    waveform_info = [
+        self.scl_rising_edge, self.scl_falling_edge, self.sda_rising_edge,
+        self.sda_falling_edge, self.start_num, self.restart_num, self.stop_num
+    ]
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
-        LOCAL_PATH
+        waveform_info, LOCAL_PATH
     )
     subprocess.run(["open", report_path], check=True)
 

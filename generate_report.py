@@ -163,7 +163,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
                      addr: typing.List[str], sampling_rate: int,
-                     save_folder: str):
+                     waveform_info: typing.List[int],
+                     save_folder=LOCAL_PATH):
   """Write HTML report.
 
   Args:
@@ -282,11 +283,11 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .left {
       float: left;
-      width: 50%;
+      width: 35%;
     }
     .right {
       float: left;
-      width: 50%;
+      width: 65%;
     }
     .column_left {
       float: left;
@@ -487,6 +488,19 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         f"\n\t\t\t\t<td>{len(fail)}</td>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td>"
         f"<b>Pass</b></td>\n\t\t\t\t<td>{num_pass}</td>\n\t\t\t</tr>\n\t\t\t<tr>"
         f"\n\t\t\t\t<td><b>Total</b></td>\n\t\t\t\t<td>{result_num}</td>\n\t\t\t</tr>"
+        "\n\t\t</table>\n\t\t<table class='summary'>\n\t\t\t<tr>"
+        "\n\t\t\t\t<th colspan=2>Waveform Info</th>\n\t\t\t</tr>"
+    )
+    
+    info_list = [
+        "SCL rise edges", "SCL fall edges", "SDA rise edges", "SDA fall edges",
+        "START patterns", "RESTART patterns", "STOP patterns"
+    ]
+    for i in range(len(info_list)):
+      report.write(
+         f"\n\t\t\t<tr>\n\t\t\t\t<td><b>{info_list[i]}</b></td>\n\t\t\t\t<td>{waveform_info[i]}</td>\n\t\t\t</tr>"
+      )
+    report.write(
         "\n\t\t</table>\n\t\t<h3>Click each row to check the waveform of the worst "
         "mearsurement shown <u>at the end of report</u>.</h3>\n\t</div>"
     )
@@ -546,7 +560,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
           spec[k] /= 1e3
         spec[k] = f"{spec[k]:.2f}"
       else:
-        spec[k] = " "
+        spec[k] = "-"
 
     headers = [
         ["Symbol", "Parameter", "Unit", "SPEC", "Measurement", "Margin",
