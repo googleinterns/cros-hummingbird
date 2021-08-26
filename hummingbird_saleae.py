@@ -78,6 +78,14 @@ class HummingBird(AnalogMeasurer, hummingbird_cmd.HummingBird):
     self.samples = []
     self.start_time = None
     self.sampling_period = None
+    
+    self.scl_rising_edge = 0
+    self.scl_falling_edge = 0
+    self.sda_rising_edge = 0
+    self.sda_falling_edge = 0
+    self.start_num = 0
+    self.restart_num = 0
+    self.stop_num = 0
 
     self.stop_flag = 1
     self.start_flag = 0
