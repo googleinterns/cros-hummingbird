@@ -66,15 +66,16 @@ class HummingBird():
 
     sampling_period: SCL data sampling period
     f_clk: SCL clock frequency
-    time: time data
-    data: include SCL and SDA data in unknown order
+    vs: working voltage
+    mode: operation mode
+    data_list: data load from csv file
     scl_data: SCL data
     sda_data: SDA data
     v_30p: threshold reference point for state LOW
     v_70p: threshold reference point for state HIGH
   """
 
-  def __init__(self, csv_data_path, save_folder):
+  def __init__(self, csv_data_path, save_folder, vs, mode):
     """Initialization.
 
     Initialize your measurement extension here
@@ -84,6 +85,8 @@ class HummingBird():
     Args:
       csv_data_path: csv file to measure
       save_folder: output report path
+      vs: working voltage
+      mode: operation mode
     """
     super().__init__()
 
@@ -95,21 +98,22 @@ class HummingBird():
 
     self.csv_data_path = csv_data_path
     self.save_folder = save_folder
-    self.time = None
-    self.data = None
+    self.vs = vs
+    self.mode = mode.replace("_", " ")
+    self.data_list = None
     if os.path.isfile(self.csv_data_path):
       with open(self.csv_data_path, "r") as f:
-        data_iter = csv.reader(f)
+        data_iter = csv.reader(f, delimiter=",")
         next(data_iter)  # skip header
-        data_list = list(data_iter)
-        time = [d[0] for d in data_list]
-        self.time = np.asarray(time, dtype=np.float64)
-        data = [d[1:] for d in data_list]
-        self.data = np.asarray(data, dtype=np.float32)
+        self.data_list = np.array(list(data_iter), dtype=np.float64)
 
-    self.v_30p = None
-    self.v_70p = None
-    self.sampling_period = self.time[1] - self.time[0]
+    if vs is not None:
+      self.v_30p = vs * 0.3
+      self.v_70p = vs * 0.7
+    else:
+      self.v_30p = None
+      self.v_70p = None
+    self.sampling_period = self.data_list[1, 0] - self.data_list[0, 0]
 
   def max_of_filtered_arr(self, data, threshold=1):
     """Return the maximum value of the filtered array.
@@ -187,10 +191,9 @@ class HummingBird():
     for i in range(1, len(data1)):
       n1 = data1[i]
       n2 = data2[i]
-      t = self.time[i]
       if ((v1 >= self.v_30p and n1 < self.v_30p) or
           (v1 <= self.v_30p and n1 > self.v_30p)):
-        dataline1.i_30p = t
+        dataline1.i_30p = i
         if dataline1.i_70p is not None:  # falling edge
           dataline1.low_start = dataline1.i_30p
           dataline1.i_30p = dataline1.i_70p = None
@@ -203,7 +206,7 @@ class HummingBird():
 
       if ((v1 >= self.v_70p and n1 < self.v_70p) or
           (v1 <= self.v_70p and n1 > self.v_70p)):
-        dataline1.i_70p = t
+        dataline1.i_70p = i
         if dataline1.i_30p is not None:  # rising edge
           dataline1.high_start = dataline1.i_70p
           dataline1.i_30p = dataline1.i_70p = None
@@ -216,7 +219,7 @@ class HummingBird():
 
       if ((v2 >= self.v_30p and n2 < self.v_30p) or
           (v2 <= self.v_30p and n2 > self.v_30p)):
-        dataline2.i_30p = t
+        dataline2.i_30p = i
         if dataline2.i_70p is not None:  # falling edge
           dataline2.low_start = dataline2.i_30p
           dataline2.i_30p = dataline2.i_70p = None
@@ -231,7 +234,7 @@ class HummingBird():
 
       if ((v2 >= self.v_70p and n2 < self.v_70p) or
           (v2 <= self.v_70p and n2 > self.v_70p)):
-        dataline2.i_70p = t
+        dataline2.i_70p = i
         if dataline2.i_30p is not None:  # rising edge
           dataline2.high_start = dataline2.i_70p
           dataline2.i_30p = dataline2.i_70p = None
@@ -270,13 +273,13 @@ class HummingBird():
 
       if ((v1 >= self.v_70p and n1 < self.v_70p) or
           (v1 <= self.v_70p and n1 > self.v_70p)):
-        dataline1.i_70p = t
+        dataline1.i_70p = i
         if dataline1.i_30p is not None:  # rising edge
           dataline1.i_30p = dataline1.i_70p = None
 
       if ((v2 >= self.v_30p and n2 < self.v_30p) or
           (v2 <= self.v_30p and n2 > self.v_30p)):
-        dataline2.i_30p = t
+        dataline2.i_30p = i
         if dataline2.i_70p is not None:  # falling edge
           dataline2.i_30p = dataline2.i_70p = None
 
@@ -286,7 +289,7 @@ class HummingBird():
 
       if ((v2 >= self.v_70p and n2 < self.v_70p) or
           (v2 <= self.v_70p and n2 > self.v_70p)):
-        dataline2.i_70p = t
+        dataline2.i_70p = i
         if dataline2.i_30p is not None:  # rising edge
           dataline2.i_30p = dataline2.i_70p = None
       v1 = n1
@@ -296,13 +299,13 @@ class HummingBird():
     first_data_end = int(first_data_end * 0.8 + len(data1) * 0.2)
     if len(clk_dataline1) > len(clk_dataline2):
       # data1 = SCL, data2 = SDA
-      self.f_clk = 1 / np.min(clk_dataline1)
+      self.f_clk = 1 / (np.min(clk_dataline1) * self.sampling_period)
       self.scl_data = data1[first_data_start:first_data_end]
       self.sda_data = data2[first_data_start:first_data_end]
       print("Detect column order:\tSCL, SDA")
     else:
       # data1 = SDA, data2 = SCL
-      self.f_clk = 1 / np.min(clk_dataline2)
+      self.f_clk = 1 / (np.min(clk_dataline2) * self.sampling_period)
       self.scl_data = data2[first_data_start:first_data_end]
       self.sda_data = data1[first_data_start:first_data_end]
       print("Detect column order:\tSDA, SCL")
@@ -1101,14 +1104,20 @@ class HummingBird():
     Returns:
       report_path: output testing report
     """
-    data1 = self.data[:, 0]
-    data2 = self.data[:, 1]
+    data1 = self.data_list[:, 1]
+    data2 = self.data_list[:, 2]
 
     print("------------------------------------")
-    vs = self.determine_working_voltage(data1)
+    if self.vs is None:
+      vs = self.determine_working_voltage(data1)
+    else:
+      vs = self.vs
     print("Working Voltage: ", vs, "V")
     self.determine_datatype(data1, data2)
-    mode = self.determine_operation_mode()
+    if self.mode is None:
+      mode = self.determine_operation_mode()
+    else:
+      mode = self.mode
     print("Operation Mode: ", mode)
     print("------------------------------------")
 
