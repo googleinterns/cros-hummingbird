@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 from generate_report import OutputReportFile
-import hummingbird_cmd
+import hummingbird
 import numpy as np
 from saleae.data import GraphTime
 from saleae.range_measurements import AnalogMeasurer
@@ -22,7 +22,7 @@ if not os.path.exists(LOCAL_PATH):
   os.makedirs(LOCAL_PATH)
 
 
-class HummingBird(AnalogMeasurer, hummingbird_cmd.HummingBird):
+class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
   """Main measurement module.
 
   This is the main module called by Saleae measurement API.
@@ -78,7 +78,7 @@ class HummingBird(AnalogMeasurer, hummingbird_cmd.HummingBird):
     self.samples = []
     self.start_time = None
     self.sampling_period = None
-    
+
     self.scl_rising_edge = 0
     self.scl_falling_edge = 0
     self.sda_rising_edge = 0
@@ -182,7 +182,7 @@ class HummingBird(AnalogMeasurer, hummingbird_cmd.HummingBird):
       datatype: current capture is SCL or SDA
     """
     datatype = None
-    dataline = hummingbird_cmd.Logic()
+    dataline = hummingbird.Logic()
     clk_dataline = []
     v = data[0]
     for i in range(1, len(data)):

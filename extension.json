@@ -7,7 +7,7 @@
   "extensions": {
     "HummingBird": {
       "type": "AnalogMeasurement",
-      "entryPoint": "hummingbird_saleae.HummingBird",
+      "entryPoint": "analogmeasurement.HummingBird",
       "metrics": {
         "spec": {
           "name": "spec check result (Pass/Fail)",

@@ -8,6 +8,7 @@ would be running I2C electrical test on capture data.
 import csv
 import math
 import os
+import sys
 
 from generate_report import OutputReportFile
 from generate_report import SVGFile
@@ -73,6 +74,14 @@ class HummingBird():
     sda_data: SDA data
     v_30p: threshold reference point for state LOW
     v_70p: threshold reference point for state HIGH
+
+    scl_rising_edge: number of SCL rising edge
+    scl_falling_edge: number of SCL falling edge
+    sda_rising_edge: number of SDA rising edge
+    sda_falling_edge: number of SDA falling edge
+    start_num: number of START pattern
+    restart_num: number of RESTART pattern
+    stop_num: number of STOP pattern
   """
 
   def __init__(self, csv_data_path, save_folder, vs, mode):
@@ -95,9 +104,9 @@ class HummingBird():
     self.restart_flag = 0
     self.data_start_flag = 0
     self.first_packet = 0
-    
+
     # Calculate number of edges, start, stop
-    
+
     self.scl_rising_edge = 0
     self.scl_falling_edge = 0
     self.sda_rising_edge = 0
@@ -305,6 +314,10 @@ class HummingBird():
       v1 = n1
       v2 = n2
 
+    if first_data_start is None and first_data_end is None:
+      print("\nError! No edge detected! "
+            "Please check the working voltage and the captured waveform.")
+      sys.exit(0)
     first_data_start = int(first_data_start * 0.8)
     first_data_end = int(first_data_end * 0.8 + len(data1) * 0.2)
     if len(clk_dataline1) > len(clk_dataline2):
@@ -1151,10 +1164,10 @@ class HummingBird():
     print("Total captured STOP pattern: ", self.stop_num)
     scl_runt_num = 0
     if measure_field.get("runt_scl"):
-      scl_runt_num = len(result["runt_scl"])
+      scl_runt_num = len(measure_field["runt_scl"])
     sda_runt_num = 0
     if measure_field.get("runt_sda"):
-      sda_runt_num = len(result["runt_sda"])
+      sda_runt_num = len(measure_field["runt_sda"])
     print("Total captured RUNT pattern on SCL dataline: ", scl_runt_num)
     print("Total captured RUNT pattern on SDA dataline: ", sda_runt_num)
     print("------------------------------------")
