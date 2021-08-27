@@ -597,7 +597,8 @@ class HummingBird():
           sda.state = None
 
       if ((scl.state == 0) and sda.high_end is not None and
-          (math.ceil(sda.high_end) == i) and self.data_start_flag):
+          (math.ceil(sda.high_end) == i) and self.data_start_flag and
+          (sda.high_start is None or sda.high_start < scl.low_start)):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 9) or
@@ -614,7 +615,8 @@ class HummingBird():
           )
 
       if ((scl.state == 0) and sda.low_end is not None and
-          (math.ceil(sda.low_end) == i) and self.data_start_flag):
+          (math.ceil(sda.low_end) == i) and self.data_start_flag and
+          (sda.low_start is None or sda.low_start < scl.low_start)):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 9) or
@@ -633,9 +635,8 @@ class HummingBird():
       # Check at 8 for setup time since data_start_flag increment at high
 
       if ((sda.state == 0) and scl.low_end is not None and
-          (math.ceil(scl.low_end) == i) and
-          ((scl.low_start is None) or (scl.low_start < sda.low_start)) and
-          self.data_start_flag):
+          (math.ceil(scl.low_end) == i) and self.data_start_flag and
+          (scl.low_start is None or scl.low_start < sda.low_start)):
         if ((self.first_packet and self.data_start_flag == 8) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 8) or
@@ -651,9 +652,8 @@ class HummingBird():
               [i - interpolation, scl.low_end - sda.low_start]
           )
       if ((sda.state == 1) and scl.low_end is not None and
-          (math.ceil(scl.low_end) == i) and
-          ((scl.low_start is None) or (scl.low_start < sda.high_start)) and
-          self.data_start_flag):
+          (math.ceil(scl.low_end) == i) and self.data_start_flag and
+          (scl.low_start is None or scl.low_start < sda.high_start)):
         if ((self.first_packet and self.data_start_flag == 8) or
             (not self.first_packet and read_flag and
              self.data_start_flag != 8) or
@@ -670,7 +670,8 @@ class HummingBird():
           )
 
       if ((scl.state == 1) and sda.high_end is not None and
-          (math.ceil(sda.high_end) == i)):
+          (math.ceil(sda.high_end) == i) and
+          (sda.high_start is None or sda.high_start < scl.high_start)):
         if not self.stop_flag:  # Sr
           self.restart_flag = 1
           self.first_packet = 1
@@ -680,7 +681,7 @@ class HummingBird():
           addr = ""
           measure_field = self.add_measurement(
               measure_field, "t_SU_STA",
-              [i - interpolation, sda.high_end-scl.high_start]
+              [i - interpolation, sda.high_end - scl.high_start]
           )
         else:  # S
           self.start_flag = 1
@@ -692,12 +693,12 @@ class HummingBird():
           if sda.high_start is not None:
             measure_field = self.add_measurement(
                 measure_field, "t_BUF",
-                [i - interpolation, sda.high_end-sda.high_start]
+                [i - interpolation, sda.high_end - sda.high_start]
             )
 
       if ((sda.state == 0) and scl.high_end is not None and
           (math.ceil(scl.high_end) == i) and
-          ((scl.high_start is None) or (scl.high_start < sda.low_start))):
+          (scl.high_start is None or scl.high_start < sda.low_start)):
         if self.restart_flag:
           measure_field = self.add_measurement(
               measure_field, "t_HD_STA_Sr",
@@ -711,7 +712,7 @@ class HummingBird():
 
       if ((scl.state == 1) and sda.low_end is not None and
           (math.ceil(sda.low_end) == i) and
-          scl.high_start is not None):
+          (sda.low_start is None or sda.low_start < scl.high_start)):
         self.stop_flag = 1
         read_flag = 0
         self.restart_flag = self.start_flag = 0

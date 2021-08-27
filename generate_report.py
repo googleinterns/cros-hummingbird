@@ -180,6 +180,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     svg_fields: SVG plot dictionary for each SPEC field
     addr: device address included in the capture
     sampling_rate: sampling rate of the analog data
+    waveform_info: edge count and pattern count info list
     save_folder: optional input when using CMD
 
   Returns:
@@ -464,7 +465,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         f"</p>\n\t\t<p><b>File Save Path:</b>&nbsp;{report_path}</p>"
         f"\n\t\t<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
         f"\n\t\t<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
-        f"\n\t\t<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
+        f"\n\t\t<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s (Strongly "
+        "recommend &geq; 50MS/s for accuracy)</p>"
         "\n\t\t<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
         "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
@@ -491,14 +493,15 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         "\n\t\t</table>\n\t\t<table class='summary'>\n\t\t\t<tr>"
         "\n\t\t\t\t<th colspan=2>Waveform Info</th>\n\t\t\t</tr>"
     )
-    
+
     info_list = [
         "SCL rise edges", "SCL fall edges", "SDA rise edges", "SDA fall edges",
         "START patterns", "RESTART patterns", "STOP patterns"
     ]
     for i in range(len(info_list)):
       report.write(
-         f"\n\t\t\t<tr>\n\t\t\t\t<td><b>{info_list[i]}</b></td>\n\t\t\t\t<td>{waveform_info[i]}</td>\n\t\t\t</tr>"
+          f"\n\t\t\t<tr>\n\t\t\t\t<td><b>{info_list[i]}</b></td>"
+          f"\n\t\t\t\t<td>{waveform_info[i]}</td>\n\t\t\t</tr>"
       )
     report.write(
         "\n\t\t</table>\n\t\t<h3>Click each row to check the waveform of the worst "
