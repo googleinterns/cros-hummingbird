@@ -1,3 +1,4 @@
 # ignore .pyc files
 __pycache__/
 output_reports/
+test.py

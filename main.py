@@ -42,7 +42,7 @@ if __name__ == "__main__":
   print("=== Data Load time: ", time.time() - stt, "s ===")
 
   stt = time.time()
-  report_path = hum1.measure()
+  report_path, _ = hum1.measure()
   print("Generate report at ", report_path)
   print("=== Measure Time: ", time.time() - stt, "s ===")
 

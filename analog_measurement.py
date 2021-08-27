@@ -70,9 +70,9 @@ class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
         "v_low_scl", "v_low_sda", "v_high_scl", "v_high_sda", "v_nl_scl",
         "v_nh_scl", "v_nl_sda", "v_nh_sda", "t_rise_sda", "t_rise_scl",
         "t_fall_sda", "t_fall_scl", "t_low", "t_high", "f_clk",
-        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-        "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev", "t_HD_STA_S",
+        "t_SU_DAT_host_rising", "t_SU_DAT_host_falling", "t_HD_DAT_host_rising",
+        "t_HD_DAT_host_falling", "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+        "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling", "t_HD_STA_S",
         "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
     ]
     self.samples = []
@@ -336,10 +336,10 @@ class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
 
     supported_measurements = [
         "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl", "t_low",
-        "t_high", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-        "t_HD_DAT_falling_dev", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
+        "t_high", "t_SU_DAT_host_rising", "t_SU_DAT_host_falling",
+        "t_HD_DAT_host_rising", "t_HD_DAT_host_falling",
+        "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling", "t_HD_DAT_dev_rising",
+        "t_HD_DAT_dev_falling", "t_HD_STA_Sr", "t_HD_STA_S", "t_SU_STA",
         "t_SU_STO", "t_BUF"
     ]
     if any(k.split("_worst")[0] in supported_measurements

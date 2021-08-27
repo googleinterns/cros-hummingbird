@@ -198,10 +198,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
   field = [
       "v_low_sda", "v_low_scl", "v_high_sda", "v_high_scl", "v_nl_sda",
       "v_nl_scl", "v_nh_sda", "v_nh_scl", "f_clk", "t_low", "t_high",
-      "t_SU_STA", "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_DAT_rising_host",
-      "t_SU_DAT_falling_host", "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-      "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-      "t_HD_DAT_falling_dev", "t_rise_sda", "t_rise_scl", "t_fall_sda",
+      "t_SU_STA", "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_DAT_host_rising",
+      "t_SU_DAT_host_falling", "t_HD_DAT_host_rising", "t_HD_DAT_host_falling",
+      "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling", "t_HD_DAT_dev_rising",
+      "t_HD_DAT_dev_falling", "t_rise_sda", "t_rise_scl", "t_fall_sda",
       "t_fall_scl", "t_SU_STO", "t_BUF"
   ]
   spec_field = [
@@ -394,9 +394,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
           "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
           "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
           "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
-          "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-          "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-          "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+          "t_SU_DAT_host_rising", "t_SU_DAT_host_falling", "t_HD_DAT_host_rising",
+          "t_HD_DAT_host_falling", "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+          "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling","t_HD_STA_S", "t_HD_STA_Sr",
           "t_SU_STA", "t_SU_STO", "t_BUF"
       ];
       fields.forEach(function(item, index, array) {
@@ -426,9 +426,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
             "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
             "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
             "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
-            "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-            "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-            "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+            "t_SU_DAT_host_rising", "t_SU_DAT_host_falling", "t_HD_DAT_host_rising",
+            "t_HD_DAT_host_falling", "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+            "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling","t_HD_STA_S", "t_HD_STA_Sr",
             "t_SU_STA", "t_SU_STO", "t_BUF"
         ];
         fields.forEach(function(item, index, array) {
@@ -515,7 +515,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         values[f + "_worst"] = "N/A"
 
       else:
-        if "t_rise" in f or "t_fall" in f:
+        if "t_rise_" in f or "t_fall_" in f:
           values[f + "_max"] *= 1e9
           values[f + "_min"] *= 1e9
           values[f + "_worst"] *= 1e9

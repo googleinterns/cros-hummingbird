@@ -84,7 +84,7 @@ class HummingBird():
     stop_num: number of STOP pattern
   """
 
-  def __init__(self, csv_data_path, save_folder, vs, mode):
+  def __init__(self, csv_data_path, save_folder=None, vs=None, mode=None):
     """Initialization.
 
     Initialize your measurement extension here
@@ -102,7 +102,7 @@ class HummingBird():
     self.stop_flag = 1
     self.start_flag = 0
     self.restart_flag = 0
-    self.data_start_flag = 0
+    self.data_start_flag = None
     self.first_packet = 0
 
     # Calculate number of edges, start, stop
@@ -605,12 +605,12 @@ class HummingBird():
             (not self.first_packet and not read_flag and
              self.data_start_flag == 9)):
           measure_field = self.add_measurement(
-              measure_field, "t_HD_DAT_falling_dev",
+              measure_field, "t_HD_DAT_dev_falling",
               [i - interpolation, sda.high_end - scl.low_start]
           )
         else:
           measure_field = self.add_measurement(
-              measure_field, "t_HD_DAT_falling_host",
+              measure_field, "t_HD_DAT_host_falling",
               [i - interpolation, sda.high_end - scl.low_start]
           )
 
@@ -623,12 +623,12 @@ class HummingBird():
             (not self.first_packet and not read_flag and
              self.data_start_flag == 9)):
           measure_field = self.add_measurement(
-              measure_field, "t_HD_DAT_rising_dev",
+              measure_field, "t_HD_DAT_dev_rising",
               [i - interpolation, sda.low_end - scl.low_start]
           )
         else:
           measure_field = self.add_measurement(
-              measure_field, "t_HD_DAT_rising_host",
+              measure_field, "t_HD_DAT_host_rising",
               [i - interpolation, sda.low_end - scl.low_start]
           )
 
@@ -643,16 +643,16 @@ class HummingBird():
             (not self.first_packet and not read_flag and
              self.data_start_flag == 8)):
           measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_falling_dev",
+              measure_field, "t_SU_DAT_dev_falling",
               [i - interpolation, scl.low_end - sda.low_start]
           )
         else:
           measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_falling_host",
+              measure_field, "t_SU_DAT_host_falling",
               [i - interpolation, scl.low_end - sda.low_start]
           )
       if ((sda.state == 1) and scl.low_end is not None and
-          (math.ceil(scl.low_end) == i) and self.data_start_flag and
+          (math.ceil(scl.low_end) == i) and self.data_start_flag is not None and
           (scl.low_start is None or scl.low_start < sda.high_start)):
         if ((self.first_packet and self.data_start_flag == 8) or
             (not self.first_packet and read_flag and
@@ -660,12 +660,12 @@ class HummingBird():
             (not self.first_packet and not read_flag and
              self.data_start_flag == 8)):
           measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_rising_dev",
+              measure_field, "t_SU_DAT_dev_rising",
               [i - interpolation, scl.low_end - sda.high_start]
           )
         else:
           measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_rising_host",
+              measure_field, "t_SU_DAT_host_rising",
               [i - interpolation, scl.low_end - sda.high_start]
           )
 
@@ -717,6 +717,7 @@ class HummingBird():
         read_flag = 0
         self.restart_flag = self.start_flag = 0
         self.stop_num += 1
+        self.data_start_flag = None
         measure_field = self.add_measurement(
             measure_field, "t_SU_STO",
             [i - interpolation, sda.low_end - scl.high_start]
@@ -870,8 +871,8 @@ class HummingBird():
 
     fields3 = [
         "t_rise_sda", "t_rise_scl", "t_fall_sda", "t_fall_scl",
-        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev"
+        "t_HD_DAT_host_rising", "t_HD_DAT_host_falling",
+        "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling"
     ]
     for f in fields3:
       measure_max = measure_field.get(f + "_max")
@@ -910,13 +911,15 @@ class HummingBird():
           result[f + "_margin"] = minn - limit_min
           if "HD" in f and limit_max != np.inf:
             result[f + "_percent"] = (minn - limit_min) / limit_max * 100
-          else:
+          elif limit_min != 0:
             result[f + "_percent"] = (minn - limit_min) / limit_min * 100
+          else:
+            result[f + "_percent"] = np.inf
 
     fields4 = [
         "t_low", "t_high", "t_SU_STA", "t_SU_STO", "t_BUF", "t_HD_STA_S",
-        "t_HD_STA_Sr", "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev"
+        "t_HD_STA_Sr", "t_SU_DAT_host_rising", "t_SU_DAT_host_falling",
+        "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling"
     ]
     for f in fields4:
       measure_max = measure_field.get(f + "_max")
@@ -1048,10 +1051,10 @@ class HummingBird():
         )
 
     fields3 = [
-        "t_SU_DAT_rising_host", "t_SU_DAT_falling_host",
-        "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-        "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-        "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev",
+        "t_SU_DAT_host_rising", "t_SU_DAT_host_falling",
+        "t_HD_DAT_host_rising", "t_HD_DAT_host_falling",
+        "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+        "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling",
         "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_STA", "t_SU_STO", "t_BUF"
     ]
     for f in fields3:
@@ -1191,5 +1194,10 @@ class HummingBird():
         waveform_info, self.save_folder
     )
 
-    return report_path
+    test_item = [
+        mode, vs, values.copy(), result.copy(), fail.copy(),
+        num_pass, uni_addr, sampling_rate, waveform_info
+    ]
+
+    return report_path, test_item
 
