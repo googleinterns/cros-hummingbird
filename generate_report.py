@@ -164,7 +164,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      svg_fields: typing.Dict[str, str],
                      addr: typing.List[str], sampling_rate: int,
                      waveform_info: typing.List[int],
-                     save_folder=LOCAL_PATH):
+                     save_folder: str):
   """Write HTML report.
 
   Args:
