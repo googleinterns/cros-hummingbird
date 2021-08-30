@@ -6,7 +6,6 @@ import datetime
 import math
 import os
 import typing
-import tempfile
 
 import numpy as np
 
