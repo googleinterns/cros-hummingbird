@@ -99,7 +99,7 @@ class HummingBird():
     self.csv_data_path = csv_data_path
     self.save_folder = save_folder
     self.vs = vs
-    self.mode = mode.replace("_", " ")
+    self.mode = mode
     self.data_list = None
     if os.path.isfile(self.csv_data_path):
       with open(self.csv_data_path, "r") as f:
@@ -1117,7 +1117,7 @@ class HummingBird():
     if self.mode is None:
       mode = self.determine_operation_mode()
     else:
-      mode = self.mode
+      mode = self.mode.replace("_", " ")
     print("Operation Mode: ", mode)
     print("------------------------------------")
 

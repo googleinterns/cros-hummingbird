@@ -18,9 +18,11 @@ if __name__ == "__main__":
   parser.add_argument("--output_folder", default=None,
                       help="output report folder")
   parser.add_argument("--working_voltage", default=None, type=float,
-                      help="1.8/3.3/5 (unit: V)")
+                      choices=[1.8, 3.3, 5],
+                      help="supplying voltage (unit: V)")
   parser.add_argument("--operation_mode", default=None,
-                      help="Standard_Mode/Fast_Mode/Fast_Mode_Plus")
+                      choices=["Standard_Mode", "Fast_Mode", "Fast_Mode_Plus"],
+                      help="SPEC operation mode")
   args = parser.parse_args()
 
   if args.output_folder is None:

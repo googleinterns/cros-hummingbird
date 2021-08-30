@@ -363,7 +363,8 @@ class HummingBird(AnalogMeasurer, hummingbird_cmd.HummingBird):
     svg_fields = self.get_svg_fields(result, svgwidth, vs)
     report_path = OutputReportFile(
         mode, spec_limit.copy(), vs, values.copy(), result.copy(),
-        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate
+        fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
+        LOCAL_PATH
     )
     subprocess.run(["open", report_path], check=True)
 

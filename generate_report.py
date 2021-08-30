@@ -11,11 +11,6 @@ import tempfile
 import numpy as np
 
 
-LOCAL_PATH = os.path.join(tempfile.gettempdir(), "output_reports")
-if not os.path.exists(LOCAL_PATH):
-  os.makedirs(LOCAL_PATH)
-
-
 def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
             rect_idx: int, rect_width: int, field: str, vs: float):
   """Generate SVG plot.
@@ -169,7 +164,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
                      addr: typing.List[str], sampling_rate: int,
-                     save_folder=LOCAL_PATH):
+                     save_folder: str):
   """Write HTML report.
 
   Args:
