@@ -163,6 +163,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
                      fail: typing.Dict[str, int], num_pass: int,
                      svg_fields: typing.Dict[str, str],
                      addr: typing.List[str], sampling_rate: int,
+                     waveform_info: typing.List[int],
                      save_folder: str):
   """Write HTML report.
 
@@ -179,6 +180,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     svg_fields: SVG plot dictionary for each SPEC field
     addr: device address included in the capture
     sampling_rate: sampling rate of the analog data
+    waveform_info: edge count and pattern count info list
     save_folder: optional input when using CMD
 
   Returns:
@@ -196,10 +198,10 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
   field = [
       "v_low_sda", "v_low_scl", "v_high_sda", "v_high_scl", "v_nl_sda",
       "v_nl_scl", "v_nh_sda", "v_nh_scl", "f_clk", "t_low", "t_high",
-      "t_SU_STA", "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_DAT_rising_host",
-      "t_SU_DAT_falling_host", "t_HD_DAT_rising_host", "t_HD_DAT_falling_host",
-      "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev", "t_HD_DAT_rising_dev",
-      "t_HD_DAT_falling_dev", "t_rise_sda", "t_rise_scl", "t_fall_sda",
+      "t_SU_STA", "t_HD_STA_S", "t_HD_STA_Sr", "t_SU_DAT_host_rising",
+      "t_SU_DAT_host_falling", "t_HD_DAT_host_rising", "t_HD_DAT_host_falling",
+      "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling", "t_HD_DAT_dev_rising",
+      "t_HD_DAT_dev_falling", "t_rise_sda", "t_rise_scl", "t_fall_sda",
       "t_fall_scl", "t_SU_STO", "t_BUF"
   ]
   spec_field = [
@@ -282,11 +284,11 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     }
     .left {
       float: left;
-      width: 50%;
+      width: 35%;
     }
     .right {
       float: left;
-      width: 50%;
+      width: 65%;
     }
     .column_left {
       float: left;
@@ -392,9 +394,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
           "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
           "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
           "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
-          "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-          "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-          "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+          "t_SU_DAT_host_rising", "t_SU_DAT_host_falling", "t_HD_DAT_host_rising",
+          "t_HD_DAT_host_falling", "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+          "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling","t_HD_STA_S", "t_HD_STA_Sr",
           "t_SU_STA", "t_SU_STO", "t_BUF"
       ];
       fields.forEach(function(item, index, array) {
@@ -424,9 +426,9 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
             "v_low_scl", "v_high_scl", , "v_nl_scl", "v_nh_scl", "v_nl_sda",
             "v_nh_sda","t_rise_scl", "t_fall_scl", "t_low", "t_high", "f_clk",
             "v_low_sda", "v_high_sda", "t_rise_sda", "t_fall_sda",
-            "t_SU_DAT_rising_host", "t_SU_DAT_falling_host", "t_HD_DAT_rising_host",
-            "t_HD_DAT_falling_host", "t_SU_DAT_rising_dev", "t_SU_DAT_falling_dev",
-            "t_HD_DAT_rising_dev", "t_HD_DAT_falling_dev","t_HD_STA_S", "t_HD_STA_Sr",
+            "t_SU_DAT_host_rising", "t_SU_DAT_host_falling", "t_HD_DAT_host_rising",
+            "t_HD_DAT_host_falling", "t_SU_DAT_dev_rising", "t_SU_DAT_dev_falling",
+            "t_HD_DAT_dev_rising", "t_HD_DAT_dev_falling","t_HD_STA_S", "t_HD_STA_Sr",
             "t_SU_STA", "t_SU_STO", "t_BUF"
         ];
         fields.forEach(function(item, index, array) {
@@ -463,7 +465,8 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         f"</p>\n\t\t<p><b>File Save Path:</b>&nbsp;{report_path}</p>"
         f"\n\t\t<p><b>Operation Mode:</b>&nbsp;&nbsp;{mode}</p>"
         f"\n\t\t<p><b>Operation Voltage:</b>&nbsp;&nbsp;{vs}V</p>"
-        f"\n\t\t<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s</p>"
+        f"\n\t\t<p><b>Sampling Rate:</b>&nbsp;&nbsp;{sampling_rate}MS/s (Strongly "
+        "recommend &geq; 50MS/s for accuracy)</p>"
         "\n\t\t<p><b>Reference SPEC Link:</b>&nbsp;&nbsp;"
         "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
@@ -487,6 +490,20 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         f"\n\t\t\t\t<td>{len(fail)}</td>\n\t\t\t</tr>\n\t\t\t<tr>\n\t\t\t\t<td>"
         f"<b>Pass</b></td>\n\t\t\t\t<td>{num_pass}</td>\n\t\t\t</tr>\n\t\t\t<tr>"
         f"\n\t\t\t\t<td><b>Total</b></td>\n\t\t\t\t<td>{result_num}</td>\n\t\t\t</tr>"
+        "\n\t\t</table>\n\t\t<table class='summary'>\n\t\t\t<tr>"
+        "\n\t\t\t\t<th colspan=2>Waveform Info</th>\n\t\t\t</tr>"
+    )
+
+    info_list = [
+        "SCL rise edges", "SCL fall edges", "SDA rise edges", "SDA fall edges",
+        "START patterns", "RESTART patterns", "STOP patterns"
+    ]
+    for i in range(len(info_list)):
+      report.write(
+          f"\n\t\t\t<tr>\n\t\t\t\t<td><b>{info_list[i]}</b></td>"
+          f"\n\t\t\t\t<td>{waveform_info[i]}</td>\n\t\t\t</tr>"
+      )
+    report.write(
         "\n\t\t</table>\n\t\t<h3>Click each row to check the waveform of the worst "
         "mearsurement shown <u>at the end of report</u>.</h3>\n\t</div>"
     )
@@ -498,7 +515,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         values[f + "_worst"] = "N/A"
 
       else:
-        if "t_rise" in f or "t_fall" in f:
+        if "t_rise_" in f or "t_fall_" in f:
           values[f + "_max"] *= 1e9
           values[f + "_min"] *= 1e9
           values[f + "_worst"] *= 1e9
@@ -546,7 +563,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
           spec[k] /= 1e3
         spec[k] = f"{spec[k]:.2f}"
       else:
-        spec[k] = " "
+        spec[k] = "-"
 
     headers = [
         ["Symbol", "Parameter", "Unit", "SPEC", "Measurement", "Margin",

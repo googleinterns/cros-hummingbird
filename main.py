@@ -16,7 +16,8 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("csv", help="csv data path")
   parser.add_argument("--output_folder", default=None,
-                      help="the folder path to save output report")
+                      help="the folder path to save output report, "
+                      "ex:\"./output_reports/\"")
   parser.add_argument("--working_voltage", default=None, type=float,
                       choices=[1.8, 3.3, 5],
                       help="supplying voltage (unit: V)")
@@ -27,9 +28,10 @@ if __name__ == "__main__":
 
   if args.output_folder is None:
     LOCAL_PATH = os.path.join(os.path.dirname(__file__), "output_reports")
-    if not os.path.exists(LOCAL_PATH):
-      os.makedirs(LOCAL_PATH)
     args.output_folder = LOCAL_PATH
+
+  if not os.path.exists(args.output_folder):
+    os.makedirs(args.output_folder)
 
   stt = time.time()
   print("\nLoading data from ", args.csv)
@@ -40,7 +42,7 @@ if __name__ == "__main__":
   print("=== Data Load time: ", time.time() - stt, "s ===")
 
   stt = time.time()
-  report_path = hum1.measure()
+  report_path, _ = hum1.measure()
   print("Generate report at ", report_path)
   print("=== Measure Time: ", time.time() - stt, "s ===")
 
