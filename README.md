@@ -54,3 +54,15 @@ limitation. Only the overlapped region of the two datalines would be analyzed.
 parameters predicted would be specified on the report. 
 7. Go further to run tests on a different range of dataline!
 
+## Command line to load CSV file
+1. prepare csv file containing both SDA and SCL analog data.
+2. In command line under Hummingbird local folder: 
+```python3 main.py [-h] CSV_FILE_PATH
+  [--output_folder OUTPUT_FOLDER]
+  [--working_voltage WORKING_VOLTAGE]
+  [--operation_mode OPERATION_MODE]
+```
+3. Test report would be generated and shown when both SCL and SDA data is captured. Each operation parameters predicted would be specified on the report. 
+4. Go further to run tests on different data files!
+
+

@@ -670,9 +670,9 @@ class HummingBird():
           )
 
       if ((scl.state == 1) and sda.high_end is not None and
-          (math.ceil(sda.high_end) == i) and
-          (sda.high_start is None or sda.high_start < scl.high_start)):
-        if not self.stop_flag:  # Sr
+          (math.ceil(sda.high_end) == i)):
+        if (not self.stop_flag and
+            (sda.high_start is None or sda.high_start < scl.high_start)):  # Sr
           self.restart_flag = 1
           self.first_packet = 1
           self.start_flag = 0
@@ -683,7 +683,8 @@ class HummingBird():
               measure_field, "t_SU_STA",
               [i - interpolation, sda.high_end - scl.high_start]
           )
-        else:  # S
+        elif (self.stop_flag and
+              (sda.high_start is None or scl.high_start < sda.high_start)):  # S
           self.start_flag = 1
           self.first_packet = 1
           self.stop_flag = 0
