@@ -9,14 +9,14 @@ import os
 import subprocess
 import time
 
-from hummingbird_cmd import HummingBird
+from hummingbird import HummingBird
 
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("csv", help="csv data path")
   parser.add_argument("--output_folder", default=None,
-                      help="output report folder")
+                      help="the folder path to save output report")
   parser.add_argument("--working_voltage", default=None, type=float,
                       choices=[1.8, 3.3, 5],
                       help="supplying voltage (unit: V)")

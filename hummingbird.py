@@ -8,6 +8,7 @@ would be running I2C electrical test on capture data.
 import csv
 import math
 import os
+import sys
 
 from generate_report import OutputReportFile
 from generate_report import SVGFile
@@ -73,6 +74,14 @@ class HummingBird():
     sda_data: SDA data
     v_30p: threshold reference point for state LOW
     v_70p: threshold reference point for state HIGH
+
+    scl_rising_edge: number of SCL rising edge
+    scl_falling_edge: number of SCL falling edge
+    sda_rising_edge: number of SDA rising edge
+    sda_falling_edge: number of SDA falling edge
+    start_num: number of START pattern
+    restart_num: number of RESTART pattern
+    stop_num: number of STOP pattern
   """
 
   def __init__(self, csv_data_path, save_folder, vs, mode):
@@ -95,6 +104,16 @@ class HummingBird():
     self.restart_flag = 0
     self.data_start_flag = 0
     self.first_packet = 0
+
+    # Calculate number of edges, start, stop
+
+    self.scl_rising_edge = 0
+    self.scl_falling_edge = 0
+    self.sda_rising_edge = 0
+    self.sda_falling_edge = 0
+    self.start_num = 0
+    self.restart_num = 0
+    self.stop_num = 0
 
     self.csv_data_path = csv_data_path
     self.save_folder = save_folder
@@ -295,6 +314,10 @@ class HummingBird():
       v1 = n1
       v2 = n2
 
+    if first_data_start is None and first_data_end is None:
+      print("\nError! No edge detected! "
+            "Please check the working voltage and the captured waveform.")
+      sys.exit(0)
     first_data_start = int(first_data_start * 0.8)
     first_data_end = int(first_data_end * 0.8 + len(data1) * 0.2)
     if len(clk_dataline1) > len(clk_dataline2):
@@ -391,6 +414,7 @@ class HummingBird():
               measure_field, "t_fall_scl",
               [i - interpolation, scl.i_30p - scl.i_70p]
           )
+          self.scl_falling_edge += 1
           scl.low_start = scl.i_30p
           scl.state = 0
           scl.i_30p = scl.i_70p = None
@@ -445,6 +469,7 @@ class HummingBird():
               measure_field, "t_rise_scl",
               [i - interpolation, scl.i_70p - scl.i_30p]
           )
+          self.scl_rising_edge += 1
           scl.high_start = scl.i_70p
           scl.state = 1
           scl.i_30p = scl.i_70p = None
@@ -508,6 +533,7 @@ class HummingBird():
               measure_field, "t_fall_sda",
               [i - interpolation, sda.i_30p - sda.i_70p]
           )
+          self.sda_falling_edge += 1
           sda.low_start = sda.i_30p
           sda.state = 0
           sda.i_30p = sda.i_70p = None
@@ -541,6 +567,7 @@ class HummingBird():
               measure_field, "t_rise_sda",
               [i - interpolation, sda.i_70p - sda.i_30p]
           )
+          self.sda_rising_edge += 1
           sda.high_start = sda.i_70p
           sda.state = 1
           sda.i_30p = sda.i_70p = None
@@ -649,6 +676,7 @@ class HummingBird():
           self.first_packet = 1
           self.start_flag = 0
           self.data_start_flag = 0
+          self.restart_num += 1
           addr = ""
           measure_field = self.add_measurement(
               measure_field, "t_SU_STA",
@@ -659,6 +687,7 @@ class HummingBird():
           self.first_packet = 1
           self.stop_flag = 0
           self.data_start_flag = 0
+          self.start_num += 1
           addr = ""
           if sda.high_start is not None:
             measure_field = self.add_measurement(
@@ -686,6 +715,7 @@ class HummingBird():
         self.stop_flag = 1
         read_flag = 0
         self.restart_flag = self.start_flag = 0
+        self.stop_num += 1
         measure_field = self.add_measurement(
             measure_field, "t_SU_STO",
             [i - interpolation, sda.low_end - scl.high_start]
@@ -1125,13 +1155,28 @@ class HummingBird():
 
     measure_field, addr_list = self.measure_both_scl_sda()
     print("Complete measurement")
+    print("Total captured SCL rising edges: ", self.scl_rising_edge)
+    print("Total captured SCL falling edges: ", self.scl_falling_edge)
+    print("Total captured SDA rising edges: ", self.sda_rising_edge)
+    print("Total captured SDA falling edges: ", self.sda_falling_edge)
+    print("Total captured START pattern: ", self.start_num)
+    print("Total captured RESTART pattern: ", self.restart_num)
+    print("Total captured STOP pattern: ", self.stop_num)
+    scl_runt_num = 0
+    if measure_field.get("runt_scl"):
+      scl_runt_num = len(measure_field["runt_scl"])
+    sda_runt_num = 0
+    if measure_field.get("runt_sda"):
+      sda_runt_num = len(measure_field["runt_sda"])
+    print("Total captured RUNT pattern on SCL dataline: ", scl_runt_num)
+    print("Total captured RUNT pattern on SDA dataline: ", sda_runt_num)
+    print("------------------------------------")
 
     ################### Check SPEC Limitation ##############################
 
     spec_limit = self.get_spec_limitation(mode, vs)
     values, result, svgwidth = self.check_spec(spec_limit, measure_field, vs)
     print("Complete check spec")
-    print("------------------------------------")
 
     fail = {}
     fail = {param: result for (param, result) in result.items()
