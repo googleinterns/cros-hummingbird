@@ -102,7 +102,7 @@ class HummingBird():
     self.stop_flag = 1
     self.start_flag = 0
     self.restart_flag = 0
-    self.data_start_flag = None
+    self.data_start_flag = 0
     self.first_packet = 0
 
     # Calculate number of edges, start, stop
@@ -402,8 +402,7 @@ class HummingBird():
     v_high_scl = []
     v_low_sda = []
     v_high_sda = []
-    t_su_dat_dev_rising = t_su_dat_host_rising = None
-    t_su_dat_dev_falling = t_su_dat_host_falling = None
+    t_su_dat_rising = t_su_dat_falling = None
     addr = ""
     for i in range(1, len(self.sda_data)):
       n_sda = self.sda_data[i]
@@ -443,6 +442,7 @@ class HummingBird():
                 measure_field, "runt_scl",
                 [i - interpolation, scl.i_30p - scl.low_end]
             )
+        scl.i_30p = None
 
       elif v_scl <= self.v_30p and n_scl > self.v_30p:  # rising edge
         interpolation = (self.v_30p - n_scl) / (v_scl - n_scl)
@@ -476,7 +476,7 @@ class HummingBird():
           scl.state = 1
           scl.i_30p = scl.i_70p = None
 
-          ## Don't take t_buf into T_clk consideration
+          ## Use data_start_flag avoid taking t_buf into T_clk
 
           if scl.last_high_start is not None and self.data_start_flag:
             measure_field = self.add_measurement(
@@ -495,6 +495,7 @@ class HummingBird():
                 measure_field, "runt_scl",
                 [i - interpolation, scl.i_70p - scl.high_end]
             )
+        scl.i_70p = None
 
       elif v_scl >= self.v_70p and n_scl < self.v_70p:  # falling edge
         interpolation = (self.v_70p - n_scl) / (v_scl - n_scl)
@@ -588,7 +589,7 @@ class HummingBird():
           sda.high_end = sda.i_70p
           if v_high_sda and sda.high_start:
 
-            # ignore spike occur during SCL low
+            # Ignore spike occur during SCL low
 
             if sda.high_start < scl.low_start:
               measure_field = self.add_measurement(
@@ -604,7 +605,7 @@ class HummingBird():
           (sda.high_start is None or sda.high_start < scl.low_start)):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 9) or
+             self.data_start_flag < 9) or
             (not self.first_packet and not read_flag and
              self.data_start_flag == 9)):
           measure_field = self.add_measurement(
@@ -622,7 +623,7 @@ class HummingBird():
           (sda.low_start is None or sda.low_start < scl.low_start)):
         if ((self.first_packet and self.data_start_flag == 9) or
             (not self.first_packet and read_flag and
-             self.data_start_flag != 9) or
+             self.data_start_flag < 9) or
             (not self.first_packet and not read_flag and
              self.data_start_flag == 9)):
           measure_field = self.add_measurement(
@@ -635,59 +636,19 @@ class HummingBird():
               [i - interpolation, sda.low_end - scl.low_start]
           )
 
-      # Check at 0 ~ 8 for setup time since data_start_flag increment at high
+      # Save setup time canditate, decide whether it is valid at scl.high_end
 
-      if ((sda.state == 0) and scl.low_end is not None and
-          (math.ceil(scl.low_end) == i) and self.data_start_flag is not None and
+      if ((sda.state == 0) and
+          scl.low_end is not None and (math.ceil(scl.low_end) == i) and
           (scl.low_start is None or scl.low_start < sda.low_start)):
-        if not self.first_packet and self.data_start_flag == 0:
-          if read_flag:
-            t_su_dat_dev_falling = [i - interpolation,
-                                    scl.low_end - sda.low_start]
-          else:
-            t_su_dat_host_falling = [i - interpolation,
-                                     scl.low_end - sda.low_start]
-        if ((self.first_packet and self.data_start_flag == 8) or
-            (not self.first_packet and read_flag and
-             0 < self.data_start_flag < 8) or
-            (not self.first_packet and not read_flag and
-             self.data_start_flag == 8)):
-          measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_dev_falling",
-              [i - interpolation, scl.low_end - sda.low_start]
-          )
-        elif self.first_packet or self.data_start_flag:
-          measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_host_falling",
-              [i - interpolation, scl.low_end - sda.low_start]
-          )
-      if ((sda.state == 1) and scl.low_end is not None and
-          (math.ceil(scl.low_end) == i) and self.data_start_flag is not None and
+        t_su_dat_falling = [i - interpolation, scl.low_end - sda.low_start]
+      if ((sda.state == 1) and
+          scl.low_end is not None and (math.ceil(scl.low_end) == i) and
           (scl.low_start is None or scl.low_start < sda.high_start)):
-        if not self.first_packet and self.data_start_flag == 0:
-          if read_flag:
-            t_su_dat_dev_rising = [i - interpolation,
-                                   scl.low_end - sda.high_start]
-          else:
-            t_su_dat_host_rising = [i - interpolation,
-                                    scl.low_end - sda.high_start]
-        if ((self.first_packet and self.data_start_flag == 8) or
-            (not self.first_packet and read_flag and
-             0 < self.data_start_flag < 8) or
-            (not self.first_packet and not read_flag and
-             self.data_start_flag == 8)):
-          measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_dev_rising",
-              [i - interpolation, scl.low_end - sda.high_start]
-          )
-        elif self.first_packet or self.data_start_flag:
-          measure_field = self.add_measurement(
-              measure_field, "t_SU_DAT_host_rising",
-              [i - interpolation, scl.low_end - sda.high_start]
-          )
+        t_su_dat_rising = [i - interpolation, scl.low_end - sda.high_start]
 
-      if ((scl.state == 1) and sda.high_end is not None and
-          (math.ceil(sda.high_end) == i)):
+      if ((scl.state == 1) and
+          sda.high_end is not None and (math.ceil(sda.high_end) == i)):
         if (not self.stop_flag and
             (sda.high_start is None or sda.high_start < scl.high_start)):  # Sr
           self.restart_flag = 1
@@ -713,33 +674,36 @@ class HummingBird():
                 measure_field, "t_BUF",
                 [i - interpolation, sda.high_end - sda.high_start]
             )
-      if scl.high_end is not None and math.ceil(scl.high_end) == i:
 
-        ## check whether t_su_dat_rising canditate is at Sr special case
-
-        if not (self.restart_flag and self.first_packet):
-          if t_su_dat_dev_rising:
-            measure_field = self.add_measurement(
-                measure_field, "t_SU_DAT_dev_rising",
-                t_su_dat_dev_rising
-            )
-          if t_su_dat_host_rising:
-            measure_field = self.add_measurement(
-                measure_field, "t_SU_DAT_host_rising",
-                t_su_dat_host_rising
-            )
-          if t_su_dat_dev_falling:
-            measure_field = self.add_measurement(
-                measure_field, "t_SU_DAT_dev_falling",
-                t_su_dat_dev_falling
-            )
-          if t_su_dat_host_falling:
-            measure_field = self.add_measurement(
-                measure_field, "t_SU_DAT_host_falling",
-                t_su_dat_host_falling
-            )
-        t_su_dat_dev_rising = t_su_dat_host_rising = None
-        t_su_dat_dev_falling = t_su_dat_host_falling = None
+      if (scl.high_end is not None and math.ceil(scl.high_end) == i):
+        if self.data_start_flag:  # Only take when data_start_flag is active
+          if t_su_dat_rising:
+            if ((self.first_packet and self.data_start_flag == 9) or
+                (not self.first_packet and read_flag and
+                 self.data_start_flag < 9) or
+                (not self.first_packet and not read_flag and
+                 self.data_start_flag == 9)):
+              measure_field = self.add_measurement(
+                  measure_field, "t_SU_DAT_dev_rising", t_su_dat_rising
+              )
+            else:
+              measure_field = self.add_measurement(
+                  measure_field, "t_SU_DAT_host_rising", t_su_dat_rising
+              )
+          if t_su_dat_falling:
+            if ((self.first_packet and self.data_start_flag == 9) or
+                (not self.first_packet and read_flag and
+                 self.data_start_flag < 9) or
+                (not self.first_packet and not read_flag and
+                 self.data_start_flag == 9)):
+              measure_field = self.add_measurement(
+                  measure_field, "t_SU_DAT_dev_falling", t_su_dat_falling
+              )
+            else:
+              measure_field = self.add_measurement(
+                  measure_field, "t_SU_DAT_host_falling", t_su_dat_falling
+              )
+        t_su_dat_rising = t_su_dat_falling = None
 
       if ((sda.state == 0) and scl.high_end is not None and
           (math.ceil(scl.high_end) == i) and
@@ -762,7 +726,7 @@ class HummingBird():
         read_flag = 0
         self.restart_flag = self.start_flag = 0
         self.stop_num += 1
-        self.data_start_flag = None
+        self.data_start_flag = 0
         measure_field = self.add_measurement(
             measure_field, "t_SU_STO",
             [i - interpolation, sda.low_end - scl.high_start]
