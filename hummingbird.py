@@ -420,7 +420,7 @@ class HummingBird():
           )
           self.scl_falling_edge += 1
           scl.low_start = scl.i_30p
-          scl_skip = i + 2e-8 / self.sampling_period
+          scl_skip = i + 5e-8 / self.sampling_period
           scl.i_30p = scl.i_70p = None
 
           ## Don't take t_buf into T_clk consideration
@@ -478,7 +478,7 @@ class HummingBird():
           )
           self.scl_rising_edge += 1
           scl.high_start = scl.i_70p
-          scl_skip = i + 2e-8 / self.sampling_period
+          scl_skip = i + 5e-8 / self.sampling_period
           scl.i_30p = scl.i_70p = None
 
           ## Use data_start_flag avoid taking t_buf into T_clk
@@ -545,7 +545,7 @@ class HummingBird():
           )
           self.sda_falling_edge += 1
           sda.low_start = sda.i_30p
-          sda_skip = i + 2e-8 / self.sampling_period
+          sda_skip = i + 5e-8 / self.sampling_period
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_30p - sda.low_end) * self.sampling_period > 1e-7:
@@ -581,7 +581,7 @@ class HummingBird():
           )
           self.sda_rising_edge += 1
           sda.high_start = sda.i_70p
-          sda_skip = i + 2e-8 / self.sampling_period
+          sda_skip = i + 5e-8 / self.sampling_period
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_70p - sda.high_end) * self.sampling_period > 1e-7:
