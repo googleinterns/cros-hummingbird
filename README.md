@@ -8,7 +8,7 @@ SPEC reference:	[NXP UM10204](https://www.nxp.com/docs/en/user-guide/UM10204.pdf
 A report html file would be generated at under tmp folder,
 for example, /tmp/output_reports/report_20210824150025.html
 
-Capture <b>both SCL and SDA data</b> so that all SPEC limitation could be tested. 
+Capture both SCL and SDA data so that all SPEC limitation could be tested. 
 Either order would be fine. The test would only run after both SCL and SDA data are 
 provided. Note that only the overlapped region of the two datalines would be analyzed. 
 
@@ -46,16 +46,17 @@ keyboard shortcut "Ctrl + G".
 
 	![Adding a Measurement](figures/add_measurement.png)
 
-4. Drag the measurement selection window over your recorded data in the desired range. Note that 
-the more data captured, the more computation time is needed.
+4. Drag the measurement selection window over your recorded data in the desired range. Note 
+that the more data captured, the more computation time is needed.
 5. Both SDA and SCL data should be captured (both order would be fine) to check all SPEC 
 limitation. Only the overlapped region of the two datalines would be analyzed. 
-6. Test report would be generated and shown after both SCL and SDA data is captured. Each operation 
-parameters predicted would be specified on the report. 
+6. Test report would be generated and shown after both SCL and SDA data is captured. Each 
+operation parameters predicted would be specified on the report. 
 7. Go further to run tests on a different range of dataline!
 
-## Command line to load CSV file
-1. prepare csv file containing both SDA and SCL analog data.
+## Using Command line to load CSV file
+1. Download [Github repository](https://github.com/googleinterns/cros-hummingbird.git) to local directory.
+1. Prepare csv file containing both SDA and SCL analog data, whose column is in [time, CH1, CH2] format.
 2. In command line under Hummingbird local folder: 
 ```
   python3 main.py [-h] CSV_FILE_PATH
@@ -63,7 +64,8 @@ parameters predicted would be specified on the report.
     [--working_voltage WORKING_VOLTAGE]
     [--operation_mode OPERATION_MODE]
 ```
-3. Test report would be generated and shown when both SCL and SDA data is captured. Each operation parameters predicted would be specified on the report. 
+3. Test report would be generated under local folder and shown when both SCL and SDA data is captured.
+Each operation parameters predicted would be specified on the report. 
 4. Go further to run tests on different data files!
 
 
