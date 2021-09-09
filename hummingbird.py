@@ -410,6 +410,7 @@ class HummingBird():
       if v_scl >= self.v_30p and n_scl < self.v_30p:  # falling edge
         interpolation = (self.v_30p - n_scl) / (v_scl - n_scl)
         scl.i_30p = i - interpolation
+        scl.state = 0
         if scl.i_70p is not None:
           measure_field = self.add_measurement(
               measure_field, "t_fall_scl",
@@ -417,7 +418,6 @@ class HummingBird():
           )
           self.scl_falling_edge += 1
           scl.low_start = scl.i_30p
-          scl.state = 0
           scl.i_30p = scl.i_70p = None
 
           ## Don't take t_buf into T_clk consideration
@@ -447,6 +447,7 @@ class HummingBird():
       elif v_scl <= self.v_30p and n_scl > self.v_30p:  # rising edge
         interpolation = (self.v_30p - n_scl) / (v_scl - n_scl)
         scl.i_30p = i - interpolation
+        scl.state = None
         if scl.i_70p is None:
           scl.low_end = scl.i_30p
           if scl.low_start is not None:
@@ -461,11 +462,11 @@ class HummingBird():
                 measure_field, "t_low",
                 [i - interpolation, scl.low_end - scl.low_start]
             )
-          scl.state = None
 
       if v_scl <= self.v_70p and n_scl > self.v_70p:  # rising edge
         interpolation = (self.v_70p - n_scl) / (v_scl - n_scl)
         scl.i_70p = i - interpolation
+        scl.state = 1
         if scl.i_30p is not None:
           measure_field = self.add_measurement(
               measure_field, "t_rise_scl",
@@ -473,7 +474,6 @@ class HummingBird():
           )
           self.scl_rising_edge += 1
           scl.high_start = scl.i_70p
-          scl.state = 1
           scl.i_30p = scl.i_70p = None
 
           ## Use data_start_flag avoid taking t_buf into T_clk
@@ -500,6 +500,7 @@ class HummingBird():
       elif v_scl >= self.v_70p and n_scl < self.v_70p:  # falling edge
         interpolation = (self.v_70p - n_scl) / (v_scl - n_scl)
         scl.i_70p = i - interpolation
+        scl.state = None
         if scl.i_30p is None:
           scl.high_end = scl.i_70p
           if scl.high_start is not None:
@@ -527,11 +528,10 @@ class HummingBird():
             else:
               addr += "0"
 
-          scl.state = None
-
       if v_sda >= self.v_30p and n_sda < self.v_30p:  # falling edge
         interpolation = (self.v_30p - n_sda) / (v_sda - n_sda)
         sda.i_30p = i - interpolation
+        sda.state = 0
         if sda.i_70p is not None:
           measure_field = self.add_measurement(
               measure_field, "t_fall_sda",
@@ -539,7 +539,6 @@ class HummingBird():
           )
           self.sda_falling_edge += 1
           sda.low_start = sda.i_30p
-          sda.state = 0
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_30p - sda.low_end) * self.sampling_period > 1e-7:
@@ -551,21 +550,22 @@ class HummingBird():
       elif v_sda <= self.v_30p and n_sda > self.v_30p:  # rising edge
         interpolation = (self.v_30p - n_sda) / (v_sda - n_sda)
         sda.i_30p = i - interpolation
+        sda.state = None
         if sda.i_70p is None:
           sda.low_end = sda.i_30p
-          if v_low_sda and sda.low_start:
-            if sda.low_start < scl.low_start:
+          if v_low_sda:
+            if sda.low_start and sda.low_start < scl.low_start:
               measure_field = self.add_measurement(
                   measure_field, "v_low_sda",
                   [i - interpolation, np.median(v_low_sda),
                    sda.low_end - sda.low_start]
               )
             v_low_sda = []
-          sda.state = None
 
       if v_sda <= self.v_70p and n_sda > self.v_70p:  # rising edge
         interpolation = (self.v_70p - n_sda) / (v_sda - n_sda)
         sda.i_70p = i - interpolation
+        sda.state = 1
         if sda.i_30p is not None:
           measure_field = self.add_measurement(
               measure_field, "t_rise_sda",
@@ -573,7 +573,6 @@ class HummingBird():
           )
           self.sda_rising_edge += 1
           sda.high_start = sda.i_70p
-          sda.state = 1
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_70p - sda.high_end) * self.sampling_period > 1e-7:
@@ -587,18 +586,18 @@ class HummingBird():
         sda.i_70p = i - interpolation
         if sda.i_30p is None:
           sda.high_end = sda.i_70p
-          if v_high_sda and sda.high_start:
+          sda.state = None
+          if v_high_sda:
 
             # Ignore spike occur during SCL low
 
-            if sda.high_start < scl.low_start:
+            if sda.high_start and sda.high_start < scl.low_start:
               measure_field = self.add_measurement(
                   measure_field, "v_high_sda",
                   [i - interpolation, np.median(v_high_sda),
                    sda.high_end - sda.high_start]
               )
             v_high_sda = []
-          sda.state = None
 
       if ((scl.state == 0) and sda.high_end is not None and
           (math.ceil(sda.high_end) == i) and self.data_start_flag and

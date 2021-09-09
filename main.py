@@ -14,7 +14,7 @@ from hummingbird import HummingBird
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("csv", help="csv data path")
+  parser.add_argument("csv", help="csv data path, column format: [time, CH1, CH2]")
   parser.add_argument("--output_folder", default=None,
                       help="the folder path to save output report, "
                       "ex:\"./output_reports/\"")
