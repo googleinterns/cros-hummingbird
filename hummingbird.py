@@ -406,7 +406,7 @@ class HummingBird():
     addr = ""
     scl_skip = 0
     sda_skip = 0
-    t_sp = 5e-8  # ignore spikes with pulse width < 50ns
+    t_sp = 2e-8  # ignore spikes with pulse width < 20ns
     for i in range(1, len(self.sda_data)):
       n_sda = self.sda_data[i]
       n_scl = self.scl_data[i]
