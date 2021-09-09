@@ -404,6 +404,9 @@ class HummingBird():
     v_high_sda = []
     t_su_dat_rising = t_su_dat_falling = None
     addr = ""
+    scl_skip = 0
+    sda_skip = 0
+    t_sp = 5e-8  # ignore spikes with pulse width < 50ns
     for i in range(1, len(self.sda_data)):
       n_sda = self.sda_data[i]
       n_scl = self.scl_data[i]
@@ -418,6 +421,7 @@ class HummingBird():
           )
           self.scl_falling_edge += 1
           scl.low_start = scl.i_30p
+          scl_skip = i + t_sp / self.sampling_period
           scl.i_30p = scl.i_70p = None
 
           ## Don't take t_buf into T_clk consideration
@@ -444,7 +448,8 @@ class HummingBird():
             )
         scl.i_30p = None
 
-      elif v_scl <= self.v_30p and n_scl > self.v_30p:  # rising edge
+      elif (i > scl_skip and
+            v_scl <= self.v_30p and n_scl > self.v_30p):  # rising edge
         interpolation = (self.v_30p - n_scl) / (v_scl - n_scl)
         scl.i_30p = i - interpolation
         scl.state = None
@@ -474,6 +479,7 @@ class HummingBird():
           )
           self.scl_rising_edge += 1
           scl.high_start = scl.i_70p
+          scl_skip = i + t_sp / self.sampling_period
           scl.i_30p = scl.i_70p = None
 
           ## Use data_start_flag avoid taking t_buf into T_clk
@@ -497,7 +503,8 @@ class HummingBird():
             )
         scl.i_70p = None
 
-      elif v_scl >= self.v_70p and n_scl < self.v_70p:  # falling edge
+      elif (i > scl_skip and
+            v_scl >= self.v_70p and n_scl < self.v_70p):  # falling edge
         interpolation = (self.v_70p - n_scl) / (v_scl - n_scl)
         scl.i_70p = i - interpolation
         scl.state = None
@@ -539,6 +546,7 @@ class HummingBird():
           )
           self.sda_falling_edge += 1
           sda.low_start = sda.i_30p
+          sda_skip = i + t_sp / self.sampling_period
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_30p - sda.low_end) * self.sampling_period > 1e-7:
@@ -547,7 +555,8 @@ class HummingBird():
                 [i - interpolation, sda.i_30p - sda.low_end]
             )
 
-      elif v_sda <= self.v_30p and n_sda > self.v_30p:  # rising edge
+      elif (i > sda_skip and
+            v_sda <= self.v_30p and n_sda > self.v_30p):  # rising edge
         interpolation = (self.v_30p - n_sda) / (v_sda - n_sda)
         sda.i_30p = i - interpolation
         sda.state = None
@@ -573,6 +582,7 @@ class HummingBird():
           )
           self.sda_rising_edge += 1
           sda.high_start = sda.i_70p
+          sda_skip = i + t_sp / self.sampling_period
           sda.i_30p = sda.i_70p = None
         else:
           if (sda.i_70p - sda.high_end) * self.sampling_period > 1e-7:
@@ -581,7 +591,8 @@ class HummingBird():
                 [i - interpolation, sda.i_70p - sda.high_end]
             )
 
-      elif v_sda >= self.v_70p and n_sda < self.v_70p:  # falling edge
+      elif (i > sda_skip and
+            v_sda >= self.v_70p and n_sda < self.v_70p):  # falling edge
         interpolation = (self.v_70p - n_sda) / (v_sda - n_sda)
         sda.i_70p = i - interpolation
         if sda.i_30p is None:
