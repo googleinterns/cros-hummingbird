@@ -475,7 +475,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
       report.write("\n\t\t<p>Pass SPEC test successfully! :)</p>")
     else:
       report.write("\n\t\t<p><b>Fail:</b>&nbsp;&nbsp;" + fails + "</p>")
-    report.write("\n\t\t<div class='addr'><b>Include Address:</b>&nbsp;&nbsp;")
+    report.write("\n\t\t<div class='addr'><b>Include Address (7-bit):</b>&nbsp;&nbsp;")
     report.write(" ".join(addr))
     report.write(
         f"</div>\n\t\t<p>Detect {runt_num} runt pattern<button onclick=ShowRunt()>"
