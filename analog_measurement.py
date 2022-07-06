@@ -374,7 +374,7 @@ class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
         self.sda_falling_edge, self.start_num, self.restart_num, self.stop_num
     ]
     report_path = OutputReportFile(
-        mode, spec_limit.copy(), vs, values.copy(), result.copy(),
+        mode, spec_limit.copy(), vs, self.has_clk_stretch, values.copy(), result.copy(),
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
         waveform_info, LOCAL_PATH
     )

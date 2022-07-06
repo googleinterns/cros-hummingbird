@@ -157,7 +157,7 @@ def SVGFile(data: np.ndarray, data_max: np.float64, data_min: np.float64,
   return svgfile
 
 
-def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
+def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float, clk_stretch: bool,
                      values: typing.Dict[str, np.float64],
                      result: typing.Dict[str, np.float64],
                      fail: typing.Dict[str, int], num_pass: int,
@@ -171,6 +171,7 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
     mode: operation mode
     spec: dictionary of SPEC limitation for each field (max / min)
     vs: working voltge
+    clk_stretch: has clock stretching or not
     values: dictionary of measurement for each field
             include max / min / worst for each field
     result: dictionary of electrical test result
@@ -471,6 +472,11 @@ def OutputReportFile(mode: str, spec: typing.Dict[str, float], vs: float,
         "<a href='https://www.nxp.com/docs/en/user-guide/UM10204.pdf'>"
         "NXP UM10204</a></p>"
     )
+    if clk_stretch:
+    	report.write("\n\t\t<p><b>Clock Stretching:</b>&nbsp;&nbsp;Yes</p>")
+    else:
+    	report.write("\n\t\t<p><b>Clock Stretching:</b>&nbsp;&nbsp;No</p>")
+    
     if not fails:
       report.write("\n\t\t<p>Pass SPEC test successfully! :)</p>")
     else:

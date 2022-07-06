@@ -120,6 +120,7 @@ class HummingBird():
     self.vs = vs
     self.mode = mode
     self.data_list = None
+    self.has_clk_stretch = False
     if os.path.isfile(self.csv_data_path):
       with open(self.csv_data_path, "r") as f:
         data_iter = csv.reader(f, delimiter=",")
@@ -755,7 +756,10 @@ class HummingBird():
 
       v_sda = n_sda
       v_scl = n_scl
-
+	
+    # Assume clock stretching happened if t_low_max is 2 times larger than t_low_min 
+    
+    self.has_clk_stretch = True if (measure_field.get("t_low_max")[1] >= (measure_field.get("t_low_min")[1]*2)) else False
     return measure_field, addr_list
 
   def get_spec_limitation(self, mode, vs):
@@ -771,16 +775,20 @@ class HummingBird():
     spec_limit_sm = {
         "v_low": 0.3 * vs, "v_high": 0.7 * vs, "v_nh": 0.2, "v_nl": 0.1,
         "t_rise_max": 1e-6, "t_fall_max": 3e-7, "t_low": 4.7e-6, "t_high": 4e-6,
-        "f_clk": 1e5, "t_SU_DAT": 2.5e-7, "t_HD_DAT": 3.45e-6, "t_HD_STA": 4e-6,
+        "f_clk": 1e5, "t_SU_DAT": 2.5e-7, "t_HD_STA": 4e-6,
         "t_SU_STA": 4.7e-6, "t_SU_STO": 4e-6, "t_BUF": 4.7e-6
     }
+    if not self.has_clk_stretch:
+    	spec_limit_sm["t_HD_DAT"] = 3.45e-6
     spec_limit_fm = {
         "v_low": 0.3 * vs, "v_high": 0.7 * vs, "v_nh": 0.2, "v_nl": 0.1,
         "t_rise_max": 3e-7, "t_rise_min": 2e-8, "t_fall_max": 3e-7,
         "t_fall_min": 20 * vs / 5.5 * 1e-9, "t_low": 1.3e-6, "t_high": 6e-7,
-        "f_clk": 4e5, "t_SU_DAT": 1e-7, "t_HD_DAT": 9e-7, "t_HD_STA": 6e-7,
+        "f_clk": 4e5, "t_SU_DAT": 1e-7, "t_HD_STA": 6e-7,
         "t_SU_STA": 6e-7, "t_SU_STO": 6e-7, "t_BUF": 1.3e-6
     }
+    if not self.has_clk_stretch:
+    	spec_limit_fm["t_HD_DAT"] = 9e-7
     spec_limit_fmp = {
         "v_low": 0.3 * vs, "v_high": 0.7 * vs, "v_nh": 0.2, "v_nl": 0.1,
         "t_rise_max": 1.2e-7, "t_fall_max": 1.2e-7,
@@ -1208,7 +1216,7 @@ class HummingBird():
         self.sda_falling_edge, self.start_num, self.restart_num, self.stop_num
     ]
     report_path = OutputReportFile(
-        mode, spec_limit.copy(), vs, values.copy(), result.copy(),
+        mode, spec_limit.copy(), vs, self.has_clk_stretch, values.copy(), result.copy(),
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
         waveform_info, self.save_folder
     )
