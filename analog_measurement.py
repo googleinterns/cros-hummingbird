@@ -8,6 +8,7 @@ would be running I2C electrical test on capture data.
 import datetime
 import os
 import subprocess
+import platform
 import tempfile
 
 from generate_report import OutputReportFile
@@ -378,6 +379,14 @@ class HummingBird(AnalogMeasurer, hummingbird.HummingBird):
         fail.copy(), num_pass, svg_fields, uni_addr, sampling_rate,
         waveform_info, LOCAL_PATH
     )
-    subprocess.run(["open", report_path], check=True)
+    open_file(report_path)
 
     return values
+
+def open_file(filepath):
+    if platform.system() == 'Darwin':       # macOS
+        subprocess.call(('open', filepath))
+    elif platform.system() == 'Windows':    # Windows
+        os.startfile(filepath)
+    else:                                   # linux variants
+        subprocess.call(('xdg-open', filepath))
